@@ -1,0 +1,62 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python / backend (uv + FastAPI + Celery)
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.dylib
+*.egg-info/
+.eggs/
+.venv/
+.uv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+.ipynb_checkpoints
+.python-version
+celerybeat-schedule
+celerybeat.pid
+
+# Environment / secrets
+.env
+.env.*
+!*.example
+*.secret
+
+# Logs / temp files
+logs/
+*.log
+*.tmp
+tmp/
+temp/
+
+# Frontend (React + Vite)
+frontend/node_modules/
+frontend/.pnpm-store/
+frontend/.eslintcache
+frontend/.parcel-cache/
+frontend/.turbo/
+frontend/.vite/
+frontend/dist/
+frontend/coverage/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Docker / dev
+docker-compose.override.yml
+
