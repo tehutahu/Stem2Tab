@@ -1,0 +1,38 @@
+[project]
+name = "stem2tab"
+version = "0.1.0"
+description = "Stem to Tab backend API and worker"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "celery[redis]>=5.3.0",
+    "redis>=5.0.0",
+    "demucs>=4.0.0",
+    "pyguitarpro>=0.10.0",
+    "music21>=9.0.0",
+    "librosa>=0.10.0",
+    "soundfile>=0.12.0",
+    "onnxruntime>=1.19.2",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "structlog>=24.1.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]
+

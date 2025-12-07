@@ -60,3 +60,10 @@ frontend/pnpm-debug.log*
 # Docker / dev
 docker-compose.override.yml
 
+# Runtime data / caches / models
+data/
+*.th
+*.pth
+*.pt
+*.ckpt
+

@@ -28,7 +28,7 @@ uv lock
 | パッケージ | バージョン | 用途 | 公式ドキュメント |
 |:---|:---|:---|:---|
 | `demucs` | `>=4.0.0` | 音源分離 (Bass stem 抽出) | [GitHub](https://github.com/facebookresearch/demucs) |
-| `basic-pitch` | `>=0.3.1` | Audio-to-MIDI 変換 (ONNX) | [GitHub](https://github.com/spotify/basic-pitch) |
+| `onnxruntime` | `>=1.19.2` | Audio-to-MIDI 変換用ランタイム (Basic Pitch ONNX) | [GitHub](https://github.com/microsoft/onnxruntime) |
 | `pyguitarpro` | `>=0.10.0` | Guitar Pro 3-5 読み書き | [Docs](https://pyguitarpro.readthedocs.io/) |
 | `music21` | `>=9.0.0` | MusicXML 出力 | [Docs](https://web.mit.edu/music21/doc/) |
 | `librosa` | `>=0.10.0` | 音声処理ユーティリティ | [Docs](https://librosa.org/) |
@@ -86,10 +86,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -c "import demucs.pretrained; demucs.pretrained.get_model('htdemucs')"
 ```
 
-### Basic Pitch モデル
+### Basic Pitch (ONNX) モデル
 
-- 内蔵モデルを使用（追加ダウンロード不要）
-- ランタイム優先順位: TensorFlow → CoreML → TensorFlow Lite → ONNX
+- ONNX 形式のモデルを使用（TensorFlow 依存なし）。実装時に ONNX ファイルを配置するか、初回起動時にダウンロードする。
 
 ## 既知の互換性問題
 

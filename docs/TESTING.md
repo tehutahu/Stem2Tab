@@ -110,6 +110,38 @@ async def test_job_lifecycle(client: AsyncClient, sample_audio: bytes):
     assert status.json()["status"] == "SUCCESS"
 ```
 
+## スモーク (API/Worker)
+
+- 目的: API と Celery ワーカーの起動・疎通を最小限で確認する。
+- 内容: Demucs ダウンロードはモックし、ジョブ作成 → ステータス取得のフローのみ確認。
+
+### 手順 (ホストで実行)
+
+```bash
+cd backend
+uv run pytest tests/integration/test_smoke_pipeline.py -q
+```
+
+### 手順 (Docker Compose 内で実行)
+
+```bash
+# GPU 版
+docker compose run --rm api uv run pytest tests/integration/test_smoke_pipeline.py -q
+# CPU 版
+docker compose -f docker-compose.cpu.yml run --rm api uv run pytest tests/integration/test_smoke_pipeline.py -q
+```
+
+## ヘルスチェック
+
+- API の liveness: `curl -f http://localhost:${API_PORT:-8000}/health`
+- コンテナ内から確認する場合:
+
+```bash
+docker compose exec api curl -f http://localhost:8000/health
+```
+
+200 が返れば FastAPI が起動し、Redis への依存が満たされていることを示す。
+
 ## E2E テスト (Playwright)
 
 ### テストシナリオ

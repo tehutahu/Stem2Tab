@@ -48,20 +48,18 @@ dependencies = [
     "celery[redis]>=5.3.0",
     "redis>=5.0.0",
     "demucs>=4.0.0",
-    "basic-pitch>=0.3.1",
     "pyguitarpro>=0.10.0",
     "music21>=9.0.0",
     "librosa>=0.10.0",
     "soundfile>=0.12.0",
+    "onnxruntime>=1.19.2",
     "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "structlog>=24.1.0",
 ]
 
 [tool.uv]
-dev-dependencies = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "httpx>=0.27.0",
-]
+dev-dependencies = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "httpx>=0.27.0"]
 ```
 
 ### システム依存関係 (Dockerfile)
@@ -84,8 +82,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vite": "^5.0.0",
-    "@vitejs/plugin-react": "^4.2.0"
+    "vite": "^7.2.6",
+    "@vitejs/plugin-react": "^5.1.1",
+    "vitest": "^4.0.15"
   }
 }
 ```
@@ -97,6 +96,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 | `FILE_BUCKET_PATH` | 成果物の保存先ディレクトリ | Yes | `/data` |
 | `CELERY_BROKER_URL` | Redis ブローカーURL | Yes | `redis://redis:6379/0` |
 | `DEMUCS_MODEL` | Demucsモデル名 | No | `htdemucs` |
+| `API_PORT` | APIの待受ポート | No | `8000` |
+| `WEB_PORT` | web preview の待受ポート | No | `4173` |
+| `LOG_LEVEL` | ログレベル | No | `info` |
+| `DEMUCS_CACHE_SUBDIR` | Demucsモデルキャッシュ相対パス (`FILE_BUCKET_PATH` 配下) | No | `cache/demucs` |
+
+- `FILE_BUCKET_PATH` の `/data` はコンテナ内パス。変更したい場合は、`docker-compose*.yml` のボリュームマウント先と合わせて設定すること（例: `FILE_BUCKET_PATH=/workspace/data` とし、compose 側も `/workspace/data` をマウントする）。
+
+### モデル取得ポリシー
+
+- Demucs は **起動時オンデマンドDL**。未取得の場合のみ `DEMUCS_CACHEDIR`（デフォルト `/data/cache/demucs`）にダウンロードし、ボリュームで永続化。
 
 ## CPU/GPU ポリシー
 
@@ -116,6 +125,8 @@ worker:
             count: 1
             capabilities: [gpu]
 ```
+
+- GPU 版: `docker-compose.yml` / CPU 版: `docker-compose.cpu.yml` を用意。`./data:/data` を共有し、API/worker が同一キャッシュを再利用。
 
 ## ストレージポリシー
 

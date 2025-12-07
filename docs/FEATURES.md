@@ -97,6 +97,16 @@ flowchart LR
 
 ---
 
+## 進捗スナップショット (2025-12)
+
+- [x] API スタブ (`/api/v1/jobs` POST/GET) と Celery worker スタブを実装し、ジョブID返却とステータス確認が可能
+- [x] Demucs モデルはオンデマンドDLし、`/data/cache/demucs` にキャッシュ (compose でボリューム共有)
+- [x] GPU/CPU 両対応の docker-compose ひな型を用意し、バックエンドコードとテストをマウントして即時反映
+- [x] フロントエンドはアップロード + ポーリングのモック UI (AlphaTab プレースホルダ) を提供
+- [ ] Audio→MIDI (Basic Pitch ONNX) 実装は未着手、今後 ONNX モデル配置と推論ラッパを追加予定
+
+---
+
 ## Phase 別ロードマップ
 
 ### Phase 1: MVP
