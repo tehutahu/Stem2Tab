@@ -233,6 +233,34 @@ LOG_LEVEL=INFO
 
 ---
 
+## ホスト前提とセットアップ (WSL/Ubuntu)
+
+- Docker 29+ / Docker Compose v2
+- Python 3.11+（ホストで uv を使う場合）
+- Node.js 18+（推奨20、フロントをホスト実行する場合）
+- GPU利用時: NVIDIA ドライバ 525+ と NVIDIA Container Toolkit
+
+### インストール例
+
+```bash
+# uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Node.js は nvm 等で 18/20 系を導入することを推奨
+```
+
+### 確認コマンド
+
+```bash
+python3 --version
+uv --version
+node -v && npm -v
+docker --version && docker compose version
+nvidia-smi  # GPU マシンのみ
+```
+
+---
+
 ## 起動コマンド
 
 ```bash

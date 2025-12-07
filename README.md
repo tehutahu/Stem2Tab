@@ -55,6 +55,28 @@ Stem2Tab/
 | **フロントエンド** | React + Vite + [AlphaTab](https://alphatab.net/) |
 | **パッケージ管理** | [uv](https://docs.astral.sh/uv/) |
 
+## 前提環境と確認方法
+
+- OS: Ubuntu 22.04+/24.04（WSL可）
+- Docker: 29+（`docker --version`）
+- Docker Compose: v2（`docker compose version`）
+- Python: 3.11+（`python3 --version`） ※パッケージは必ず uv を使用
+- uv: `uv --version`（未導入なら `curl -LsSf https://astral.sh/uv/install.sh | sh`）
+- Node.js: 18+（推奨20）（`node -v`）, npm: `npm -v`
+- Git: `git --version`
+- GPU 利用時: NVIDIA ドライバ + NVIDIA Container Toolkit（`nvidia-smi` がホストで動作し、下記コンテナ確認が通ること）
+
+動作確認コマンド例:
+
+```bash
+python3 --version
+uv --version
+node -v && npm -v
+docker --version && docker compose version
+nvidia-smi  # GPUマシンのみ
+docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi  # GPUパススルー確認
+```
+
 ## クイックスタート
 
 ```bash
