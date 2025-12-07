@@ -154,18 +154,14 @@ from frontend.components import Fretboard  # これはNG
 
 ## 6. テストルール
 
-### 単体テスト
+### 単体テスト（コンテナ内で実行）
 
 ```bash
-# バックエンド（推奨: コンテナ内）
-docker compose run --rm api uv run pytest tests/unit -v
-# ホストで直接実行する場合
-cd backend && uv run pytest tests/unit -v
+# バックエンド
+docker compose exec api uv run pytest tests/unit -v
 
-# フロントエンド（推奨: コンテナ内）
-docker compose run --rm web npm test
-# ホストで直接実行する場合
-cd frontend && npm test
+# フロントエンド（Reactテストは NODE_ENV=test を指定）
+docker compose exec -e NODE_ENV=test web npm test -- --run
 ```
 
 | ルール | 説明 |
@@ -174,15 +170,10 @@ cd frontend && npm test
 | **モック活用** | 外部サービス（Demucs, Basic Pitch）はモック化 |
 | **フィクスチャ** | テストデータは `fixtures/` に配置 |
 
-### 統合テスト
+### 統合テスト（コンテナ内）
 
 ```bash
-# 依存サービス起動
-docker compose up -d redis worker api
-# 統合テスト実行（コンテナ内）
-docker compose run --rm api uv run pytest tests/integration -v
-# 後片付け
-docker compose down
+docker compose exec api uv run pytest tests/integration -v
 ```
 
 ### E2E テスト
@@ -271,6 +262,9 @@ docker compose up --build
 
 # CPU のみ
 docker compose -f docker-compose.cpu.yml up --build
+
+# テスト一括（コンテナ内）
+make test-all
 ```
 
 ---

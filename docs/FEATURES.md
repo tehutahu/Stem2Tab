@@ -103,7 +103,7 @@ flowchart LR
 - [x] Demucs モデルはオンデマンドDLし、`/data/cache/demucs` にキャッシュ (compose でボリューム共有)
 - [x] GPU/CPU 両対応の docker-compose ひな型を用意し、バックエンドコードとテストをマウントして即時反映
 - [x] フロントエンドはアップロード + ポーリングのモック UI (AlphaTab プレースホルダ) を提供
-- [ ] Audio→MIDI (Basic Pitch ONNX) 実装は未着手、今後 ONNX モデル配置と推論ラッパを追加予定
+- [x] Audio→MIDI (Basic Pitch ONNX) を実装し、ONNX GPU ランタイムで動作確認済み（`onnxruntime-gpu`、合成トーンでMIDI生成テスト）。
 
 ---
 
@@ -116,7 +116,7 @@ flowchart LR
 - [ ] ジョブ進捗確認 API (`GET /jobs/{id}`)
 - [ ] 成果物ダウンロード API (`GET /files/{id}`)
 - [ ] Demucs によるベース抽出
-- [ ] Basic Pitch (ONNX) による MIDI 生成
+- [x] Basic Pitch (ONNX) による MIDI 生成（GPU/CPU両対応）
 - [ ] 簡易 Tab 割当 (最低弦割当)
 - [ ] GP5 出力 (PyGuitarPro)
 - [ ] ローカルストレージ (`/data`)

@@ -1,9 +1,19 @@
-ARG BASE_IMAGE=pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+ARG BASE_IMAGE=pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+ARG UV_PYTHON_VERSION=3.11
+ARG USE_ONNXRUNTIME_GPU=false
+ARG ONNXRUNTIME_GPU_VERSION=1.20.1
 FROM ${BASE_IMAGE}
+# Re-declare build args for availability after FROM.
+ARG UV_PYTHON_VERSION
+ARG USE_ONNXRUNTIME_GPU
+ARG ONNXRUNTIME_GPU_VERSION
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_PYTHON=3.11
+    UV_PYTHON=${UV_PYTHON_VERSION} \
+    UV_LINK_MODE=copy \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_COLOR=1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg libsndfile1 curl && \
@@ -17,9 +27,15 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv python install 3.11 && \
-    uv sync --locked --no-dev --python 3.11 && \
-    uv run --python 3.11 python -V
+# Use system Python (3.11 in base image) and cache uv downloads for faster rebuilds.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --python ${UV_PYTHON_VERSION} && \
+    if [ "${USE_ONNXRUNTIME_GPU}" = "true" ]; then \
+      printf 'y\n' | uv pip uninstall onnxruntime || true && \
+      uv pip install --no-deps onnxruntime-gpu==${ONNXRUNTIME_GPU_VERSION}; \
+    fi && \
+    uv pip install --no-deps basic-pitch==0.4.0 && \
+    uv run --python ${UV_PYTHON_VERSION} python -V
 
 COPY src ./src
 COPY tests ./tests

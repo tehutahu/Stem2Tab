@@ -25,16 +25,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v1
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
 
       - name: Sync backend deps
         env:
           UV_FROZEN: "1"
         run: uv sync --locked --dev
 
+      - name: Install Basic Pitch (ONNX only)
+        env:
+          UV_NO_SYNC: "1"
+        run: uv pip install --no-deps basic-pitch==0.4.0
+
       - name: Run backend tests
         env:
           UV_FROZEN: "1"
+          BASIC_PITCH_MODEL_SERIALIZATION: onnx
         run: uv run pytest -q
 
   frontend:

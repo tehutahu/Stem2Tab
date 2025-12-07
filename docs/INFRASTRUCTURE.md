@@ -25,42 +25,84 @@ Stem2Tab/
 
 ### docker-compose.yml (GPU版 - 標準)
 
+主要ポイント:
+
+- `version: "3.9"`、共通ビルド定義 (`x-backend-build`) で PyTorch CUDA12 イメージを利用。
+- `api`/`worker` で `BASIC_PITCH_MODEL_SERIALIZATION=onnx` を明示し、Demucs キャッシュ (`DEMUCS_CACHEDIR`/`TORCH_HOME`) を `/data/cache/demucs` に固定。GPU イメージでは `onnxruntime-gpu` (1.20.1) をインストール。
+- `worker` に Celery ping ベースのヘルスチェックを付与。
+- GPU 予約は `deploy.resources.devices` にて `nvidia` を指定。
+
 ```yaml
 version: "3.9"
 
-services:
-  # FastAPI バックエンド
-  api:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    ports:
-      - "8000:8000"
-    env_file: .env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - FILE_BUCKET_PATH=/data
-    volumes:
-      - ./data:/data
-    depends_on:
-      - redis
-      - worker
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+x-backend-build: &backend-build
+  context: ./backend
+  dockerfile: Dockerfile
+  args:
+    BASE_IMAGE: pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+x-backend-image: &backend-image stem2tab-backend:latest
 
-  # Celery ワーカー (GPU)
-  worker:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+services:
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports: ["6379:6379"]
+    healthcheck: ["CMD", "redis-cli", "ping"]
+
+  api:
+    image: *backend-image
+    build: *backend-build
     env_file: .env
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - FILE_BUCKET_PATH=/data
+      - FILE_BUCKET_PATH=${FILE_BUCKET_PATH:-/data}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - DEMUCS_MODEL=${DEMUCS_MODEL:-htdemucs}
+      - BASIC_PITCH_MODEL_SERIALIZATION=${BASIC_PITCH_MODEL_SERIALIZATION:-onnx}
+      - API_PORT=${API_PORT:-8000}
+      - DEMUCS_CACHEDIR=${FILE_BUCKET_PATH:-/data}/cache/demucs
+      - TORCH_HOME=${FILE_BUCKET_PATH:-/data}/cache/demucs
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "${API_PORT:-8000}"]
     volumes:
-      - ./data:/data
+      - ./data:${FILE_BUCKET_PATH:-/data}
+      - ./backend/src:/app/src
+      - ./backend/tests:/app/tests
+      - torch-cache:/root/.cache/torch
+      - uv-cache:/root/.cache/uv
+    ports: ["${API_PORT:-8000}:${API_PORT:-8000}"]
     depends_on:
-      - redis
-    command: celery -A src.core.celery_app worker --loglevel=INFO
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-8000}/health"]
+
+  worker:
+    image: *backend-image
+    env_file: .env
+    environment:
+      - FILE_BUCKET_PATH=${FILE_BUCKET_PATH:-/data}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - DEMUCS_MODEL=${DEMUCS_MODEL:-htdemucs}
+      - BASIC_PITCH_MODEL_SERIALIZATION=${BASIC_PITCH_MODEL_SERIALIZATION:-onnx}
+      - DEMUCS_CACHEDIR=${FILE_BUCKET_PATH:-/data}/cache/demucs
+      - TORCH_HOME=${FILE_BUCKET_PATH:-/data}/cache/demucs
+      - PYTHONPATH=/app/src
+      - NVIDIA_VISIBLE_DEVICES=all
+    command: ["celery", "-A", "src.worker.app", "worker", "-l", "info"]
+    volumes:
+      - ./data:${FILE_BUCKET_PATH:-/data}
+      - ./backend/src:/app/src
+      - ./backend/tests:/app/tests
+      - torch-cache:/root/.cache/torch
+      - uv-cache:/root/.cache/uv
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.worker.app inspect ping -d celery@$(hostname)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
     deploy:
       resources:
         reservations:
@@ -69,88 +111,27 @@ services:
               count: 1
               capabilities: [gpu]
 
-  # Redis (Celery ブローカー/バックエンド)
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  # React フロントエンド
   web:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    ports:
-      - "5173:5173"
+      context: ./frontend
+      dockerfile: Dockerfile
+    env_file: .env
+    command: ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "${WEB_PORT:-4173}"]
+    ports: ["${WEB_PORT:-4173}:${WEB_PORT:-4173}"]
     depends_on:
-      - api
-    command: npm run dev -- --host 0.0.0.0
+      api:
+        condition: service_started
 
 volumes:
-  redis_data:
+  torch-cache:
+  uv-cache:
 ```
 
 ### docker-compose.cpu.yml (CPU版 - フォールバック)
 
-```yaml
-version: "3.9"
-
-services:
-  api:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    ports:
-      - "8000:8000"
-    env_file: .env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - FILE_BUCKET_PATH=/data
-    volumes:
-      - ./data:/data
-    depends_on:
-      - redis
-      - worker
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-
-  # Celery ワーカー (CPU)
-  worker:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    env_file: .env
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - FILE_BUCKET_PATH=/data
-    volumes:
-      - ./data:/data
-    depends_on:
-      - redis
-    command: celery -A src.core.celery_app worker --loglevel=INFO
-    # GPU設定なし = CPU動作
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  web:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    ports:
-      - "5173:5173"
-    depends_on:
-      - api
-    command: npm run dev -- --host 0.0.0.0
-
-volumes:
-  redis_data:
-```
+- `BASE_IMAGE` を `pytorch/pytorch:2.3.1-cpu` に変更した以外は GPU 版と同等。
+- GPU 予約設定なし（CPU 動作）。
+- 同じヘルスチェック／環境変数 (`BASIC_PITCH_MODEL_SERIALIZATION=onnx`) を維持。
 
 ---
 
@@ -214,21 +195,16 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 ### .env.example
 
 ```bash
-# ストレージ
 FILE_BUCKET_PATH=/data
-
-# Celery
 CELERY_BROKER_URL=redis://redis:6379/0
-
-# Demucs
 DEMUCS_MODEL=htdemucs
-
-# API設定
-API_HOST=0.0.0.0
+BASIC_PITCH_MODEL_SERIALIZATION=onnx
 API_PORT=8000
-
-# ログレベル
-LOG_LEVEL=INFO
+WEB_PORT=4173
+LOG_LEVEL=info
+DEMUCS_CACHE_SUBDIR=cache/demucs
+DEMUCS_CACHEDIR=/data/cache/demucs
+TORCH_HOME=/data/cache/demucs
 ```
 
 ---

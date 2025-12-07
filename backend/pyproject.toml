@@ -17,6 +17,13 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "structlog>=24.1.0",
+    "pretty-midi>=0.2.9",
+    "resampy>=0.2.2,<0.4.3",
+    "scikit-learn>=1.7.2",
+    "scipy>=1.4.1",
+    "mir-eval>=0.6",
+    "typing-extensions>=4.15.0",
+    "setuptools>=70",
 ]
 
 [tool.uv]

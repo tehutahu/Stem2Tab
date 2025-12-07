@@ -4,11 +4,15 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-RUN npm ci
+# Install including devDependencies for build (Vite, etc.)
+RUN npm ci --include=dev
 
 COPY . .
 
 RUN npm run build
+
+# Runtime can stay production after build
+ENV NODE_ENV=production
 
 EXPOSE 4173
 

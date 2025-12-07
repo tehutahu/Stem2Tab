@@ -25,6 +25,14 @@ flowchart TB
 
 ## 単体テスト (pytest)
 
+前提: `basic-pitch` は TensorFlow を引き込まないために **手動で no-deps インストール**する。
+
+```bash
+cd backend
+uv sync --locked --dev
+uv pip install --no-deps basic-pitch==0.4.0
+```
+
 ### テスト対象
 
 | モジュール | テスト内容 |
@@ -83,6 +91,15 @@ def test_full_pipeline(tmp_path: Path, sample_audio: Path):
     assert gp5_file.exists()
 ```
 
+### Transcription ONNX スモーク
+
+```bash
+cd backend
+uv sync --locked --dev
+uv pip install --no-deps basic-pitch==0.4.0
+BASIC_PITCH_MODEL_SERIALIZATION=onnx uv run pytest tests/integration/test_transcription.py -q
+```
+
 ### API 統合
 
 ```python
@@ -113,19 +130,21 @@ async def test_job_lifecycle(client: AsyncClient, sample_audio: bytes):
 ## スモーク (API/Worker)
 
 - 目的: API と Celery ワーカーの起動・疎通を最小限で確認する。
-- 内容: Demucs ダウンロードはモックし、ジョブ作成 → ステータス取得のフローのみ確認。
+- 内容: Demucs ダウンロードはモックし、ジョブ作成 → ステータス取得のフローのみ確認。Basic Pitch は ONNX モデルを no-deps で導入。
 
 ### 手順 (ホストで実行)
 
 ```bash
 cd backend
+uv sync --locked --dev
+uv pip install --no-deps basic-pitch==0.4.0
 uv run pytest tests/integration/test_smoke_pipeline.py -q
 ```
 
 ### 手順 (Docker Compose 内で実行)
 
 ```bash
-# GPU 版
+# GPU 版（事前に api イメージへ basic-pitch を no-deps でインストール済み）
 docker compose run --rm api uv run pytest tests/integration/test_smoke_pipeline.py -q
 # CPU 版
 docker compose -f docker-compose.cpu.yml run --rm api uv run pytest tests/integration/test_smoke_pipeline.py -q
@@ -229,16 +248,23 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+    uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv sync
+    run: uv sync --locked --dev
+
+  - name: Install Basic Pitch (ONNX only)
+    run: uv pip install --no-deps basic-pitch==0.4.0
 
       - name: Run unit tests
-        run: uv run pytest tests/unit -v
+    env:
+      BASIC_PITCH_MODEL_SERIALIZATION: onnx
+    run: uv run pytest tests/unit -v
 
       - name: Run integration tests
-        run: uv run pytest tests/integration -v
+    env:
+      BASIC_PITCH_MODEL_SERIALIZATION: onnx
+    run: uv run pytest tests/integration -v
 
   e2e:
     runs-on: ubuntu-latest
@@ -249,4 +275,19 @@ jobs:
         run: docker compose up -d
       - name: Run Playwright tests
         run: npx playwright test
+```
+
+## 補助スクリプト
+
+ルートの `Makefile` でよく使うタスクをまとめています。
+
+```bash
+# GPU compose 起動
+make dev-gpu
+# CPU compose 起動
+make dev-cpu
+# backend テスト (Basic Pitch ONNX no-deps 導入込み)
+make test-backend
+# frontend テスト＋ビルド
+make test-frontend
 ```
