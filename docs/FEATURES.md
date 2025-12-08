@@ -112,8 +112,8 @@ flowchart LR
 ### Phase 1: MVP
 
 **① Tab譜生成モジュール**
-- [ ] 音源アップロード API (`POST /jobs`)
-- [ ] ジョブ進捗確認 API (`GET /jobs/{id}`)
+- [x] 音源アップロード API (`POST /jobs`)
+- [x] ジョブ進捗確認 API (`GET /jobs/{id}`)
 - [ ] 成果物ダウンロード API (`GET /files/{id}`)
 - [ ] Demucs によるベース抽出
 - [x] Basic Pitch (ONNX) による MIDI 生成（GPU/CPU両対応）

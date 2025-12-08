@@ -1,6 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 import AlphaTabViewer from "../components/AlphaTabViewer";
+import { API_BASE } from "../config";
 import { JobStatus, useJobPolling } from "../hooks/useJobPolling";
 
 interface SubmitState {
@@ -30,16 +31,19 @@ function Upload(): JSX.Element {
         throw new Error("Please choose an audio file.");
       }
 
-      const response = await fetch("/api/v1/jobs", {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("strings", "4");
+      formData.append("tuning", "standard");
+
+      const response = await fetch(`${API_BASE}/api/v1/jobs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ filename: selectedFile.name }),
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create job (${response.status})`);
+        const detail = await response.text();
+        throw new Error(`Failed to create job (${response.status}) ${detail}`.trim());
       }
 
       const json = (await response.json()) as JobStatus;

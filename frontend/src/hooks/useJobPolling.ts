@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 
+import { API_BASE } from "../config";
+
 export interface JobStatus {
   job_id: string;
   status: string;
+  progress?: number;
+  files?: string[];
   result?: unknown;
   error?: string | null;
 }
@@ -31,7 +35,7 @@ export function useJobPolling(jobId?: string, intervalMs = 2000): JobPollingStat
     const fetchStatus = async (): Promise<void> => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/v1/jobs/${jobId}`, { signal: controller.signal });
+        const response = await fetch(`${API_BASE}/api/v1/jobs/${jobId}`, { signal: controller.signal });
         if (!response.ok) {
           throw new Error(`Job status request failed (${response.status})`);
         }
