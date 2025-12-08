@@ -18,11 +18,12 @@ from src.worker.app import celery_app
 
 logger = structlog.get_logger()
 
-ALLOWED_EXTENSIONS = {"mp3", "wav", "m4a", "ogg", "flac"}
+ALLOWED_EXTENSIONS = {"mp3", "wav", "m4a", "ogg", "flac", "opus"}
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 METADATA_FILENAME = "metadata.json"
 MIME_MAP = {
     ".wav": "audio/wav",
+    ".opus": "audio/opus",
     ".mid": "audio/midi",
     ".midi": "audio/midi",
     ".gp5": "application/octet-stream",

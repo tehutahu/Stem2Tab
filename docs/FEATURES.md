@@ -49,7 +49,7 @@ flowchart TB
 
 | 機能 | エンドポイント/画面 | モジュール | 説明 |
 |:---|:---|:---|:---|
-| 音源アップロード | `POST /jobs` | ① 生成 | 音源ファイルを受け取り、ジョブIDを返却 |
+| 音源アップロード | `POST /jobs` | ① 生成 | 音源ファイルを受け取り、ジョブIDを返却（mp3/wav/m4a/ogg/flac/opus、50MBまで） |
 | ジョブ進捗確認 | `GET /jobs/{id}` | ① 生成 | ステータスと成果物一覧を取得 |
 | 成果物ダウンロード | `GET /files/{id}?name=...` | ① 生成 | MIDI, GP5, 分離済み音源をダウンロード |
 | Tab譜プレビュー | Frontend | ② ビューア | GP5/MusicXML を描画・再生 |
@@ -114,12 +114,12 @@ flowchart LR
 **① Tab譜生成モジュール**
 - [x] 音源アップロード API (`POST /jobs`)
 - [x] ジョブ進捗確認 API (`GET /jobs/{id}`)
-- [ ] 成果物ダウンロード API (`GET /files/{id}`)
-- [ ] Demucs によるベース抽出
+- [x] 成果物ダウンロード API (`GET /files/{id}`)
+- [x] Demucs によるベース抽出
 - [x] Basic Pitch (ONNX) による MIDI 生成（GPU/CPU両対応）
-- [ ] 簡易 Tab 割当 (最低弦割当)
-- [ ] GP5 出力 (PyGuitarPro)
-- [ ] ローカルストレージ (`/data`)
+- [x] 簡易 Tab 割当 (最低弦割当)
+- [x] GP5 出力 (PyGuitarPro)
+- [x] ローカルストレージ (`/data`)
 
 **② Tab譜ビューア/デモモジュール**
 - [ ] AlphaTab による GP5 プレビュー
