@@ -49,7 +49,7 @@ Stem2Tab/
 | Web Framework | FastAPI | Pydantic v2 |
 | タスクキュー | Celery + Redis | |
 | 音源分離 | **Demucs** | PyTorch バックエンド |
-| MIDI変換 | Basic Pitch (ONNX) | TensorFlow 依存なし |
+| MIDI変換 | Basic Pitch (ONNX) | TensorFlow 依存なし（**pyproject/lock に入れず scripts/install_basic_pitch.sh で --no-deps 導入**） |
 | Tab生成 | PyGuitarPro | GP3-5 のみ対応 |
 | MusicXML | music21 | |
 
@@ -62,6 +62,21 @@ Stem2Tab/
 | ビルドツール | Vite |
 | 譜面表示 | AlphaTab |
 | 状態管理 | Zustand (推奨) |
+
+---
+
+## Basic Pitch インストールポリシー (ONNX 専用)
+
+- **pyproject.toml / uv.lock に Basic Pitch を含めない**（TensorFlow 依存を避けるため）。
+- 代わりに `backend/scripts/install_basic_pitch.sh` を実行して **ONNX専用 (--no-deps)** で導入する。
+- Docker ビルド・ローカル開発とも同一スクリプトを使用する。
+- TensorFlow を追加導入しないこと。
+
+```bash
+cd backend
+uv sync
+./scripts/install_basic_pitch.sh
+```
 
 ---
 

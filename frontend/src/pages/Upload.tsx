@@ -22,6 +22,11 @@ function Upload(): JSX.Element {
     return "Idle";
   }, [polling.data?.status, submitState.isSubmitting]);
 
+  const progressLabel = useMemo(() => {
+    if (polling.data?.progress === undefined) return undefined;
+    return `${polling.data.progress}%`;
+  }, [polling.data?.progress]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setSubmitState({ isSubmitting: true, error: undefined });
@@ -92,8 +97,31 @@ function Upload(): JSX.Element {
         <p>
           Status: <strong>{statusLabel}</strong>
         </p>
+        {progressLabel && (
+          <p>
+            Progress: <strong>{progressLabel}</strong>
+          </p>
+        )}
         {polling.error && <p style={{ color: "#dc2626" }}>Error: {polling.error}</p>}
         {submitState.error && <p style={{ color: "#dc2626" }}>Error: {submitState.error}</p>}
+        {polling.data?.error && <p style={{ color: "#dc2626" }}>Error: {polling.data.error}</p>}
+        {polling.data?.files && polling.data.files.length > 0 && (
+          <div style={{ marginTop: "0.75rem" }}>
+            <p>Artifacts:</p>
+            <ul>
+              {polling.data.files.map((fileName) => {
+                const href = `${API_BASE}/api/v1/files/${polling.data?.job_id}?name=${encodeURIComponent(fileName)}`;
+                return (
+                  <li key={fileName}>
+                    <a href={href} target="_blank" rel="noreferrer">
+                      {fileName}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         {polling.data?.result && (
           <div style={{ marginTop: "1rem" }}>
             <AlphaTabViewer scoreUrl={undefined} />

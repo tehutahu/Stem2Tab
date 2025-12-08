@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import io
+from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from src.api import main
-from src.api.main import app
+from src.api.main import METADATA_FILENAME, app
 from src.core.config import settings
 from src.worker import tasks
 from src.worker.app import celery_app
+
+
+def _touch_file(path: Path, content: bytes) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    return path
 
 
 def _setup_eager(monkeypatch, tmp_path) -> None:
@@ -16,6 +24,24 @@ def _setup_eager(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(celery_app.conf, "task_store_eager_result", True)
     monkeypatch.setattr(celery_app.conf, "result_backend", "cache+memory://")
     monkeypatch.setattr(tasks, "ensure_model", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        tasks,
+        "separate_stems",
+        lambda input_audio, output_dir, **kwargs: {
+            stem: _touch_file(output_dir / f"{stem}.wav", b"x")
+            for stem in ("vocals", "drums", "bass", "other")
+        },
+    )
+    monkeypatch.setattr(
+        tasks,
+        "transcribe_midi",
+        lambda input_wav, output_dir, **kwargs: _touch_file(output_dir / "bass.mid", b"midi"),
+    )
+    monkeypatch.setattr(
+        tasks,
+        "midi_to_gp5",
+        lambda midi_path, output_path, **kwargs: _touch_file(output_path, b"gp5"),
+    )
     monkeypatch.setattr(settings, "file_bucket_path", tmp_path)
 
 
@@ -76,4 +102,56 @@ def test_missing_job_returns_404(monkeypatch, tmp_path) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found"
+
+
+def test_download_file_success(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(settings, "file_bucket_path", tmp_path)
+    client = TestClient(app)
+
+    job_id = "job-download"
+    job_dir = tmp_path / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    file_path = job_dir / "bass.wav"
+    file_path.write_bytes(b"data")
+
+    now = datetime.now(timezone.utc)
+    metadata = main.JobStatusResponse(
+        job_id=job_id,
+        status=main.JobStatus.SUCCESS,
+        progress=100,
+        created_at=now,
+        updated_at=now,
+        files=["bass.wav"],
+        error=None,
+    )
+    (job_dir / METADATA_FILENAME).write_text(metadata.model_dump_json(), encoding="utf-8")
+
+    response = client.get(f"/api/v1/files/{job_id}", params={"name": "bass.wav"})
+    assert response.status_code == 200
+    assert response.content == b"data"
+    assert response.headers["content-type"].startswith("audio/wav")
+
+
+def test_download_file_not_found(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(settings, "file_bucket_path", tmp_path)
+    client = TestClient(app)
+
+    job_id = "missing-file"
+    job_dir = tmp_path / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    metadata = main.JobStatusResponse(
+        job_id=job_id,
+        status=main.JobStatus.SUCCESS,
+        progress=100,
+        created_at=now,
+        updated_at=now,
+        files=[],
+        error=None,
+    )
+    (job_dir / METADATA_FILENAME).write_text(metadata.model_dump_json(), encoding="utf-8")
+
+    response = client.get(f"/api/v1/files/{job_id}", params={"name": "bass.wav"})
+    assert response.status_code == 404
+    assert response.json()["detail"] == "File not found"
 

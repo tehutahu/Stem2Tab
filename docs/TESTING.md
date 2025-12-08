@@ -130,7 +130,7 @@ async def test_job_lifecycle(client: AsyncClient, sample_audio: bytes):
 ## スモーク (API/Worker)
 
 - 目的: API と Celery ワーカーの起動・疎通を最小限で確認する。
-- 内容: Demucs ダウンロードはモックし、ジョブ作成 → ステータス取得のフローのみ確認。Basic Pitch は ONNX モデルを no-deps で導入。
+- 内容: Demucs/Basic Pitch/GP5 生成はテスト内でモックし、ジョブ作成 → ステータス取得フローのみ確認（重いモデル依存を避ける）。Basic Pitch は ONNX モデルを no-deps で導入。
 
 ### 手順 (ホストで実行)
 

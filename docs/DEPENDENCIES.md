@@ -88,7 +88,9 @@ RUN python -c "import demucs.pretrained; demucs.pretrained.get_model('htdemucs')
 
 ### Basic Pitch (ONNX) モデル
 
-- ONNX 形式のモデルを使用（TensorFlow 依存なし）。実装時に ONNX ファイルを配置するか、初回起動時にダウンロードする。
+- ONNX 形式のモデルを使用（TensorFlow 依存なし）。
+- **インストール方針**: `pyproject.toml` / `uv.lock` には含めず、`backend/scripts/install_basic_pitch.sh` で `uv pip install --no-deps basic-pitch==0.4.0` を実行する。
+- コンテナ/ローカル共通でこのスクリプトを使用する。
 
 ## 既知の互換性問題
 

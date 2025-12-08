@@ -8,7 +8,8 @@ from uuid import uuid4
 
 import structlog
 from celery.result import AsyncResult
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 
 from src.api.schemas import JobCreateResponse, JobStatus, JobStatusResponse
 from src.core.config import settings
@@ -20,6 +21,13 @@ logger = structlog.get_logger()
 ALLOWED_EXTENSIONS = {"mp3", "wav", "m4a", "ogg", "flac"}
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 METADATA_FILENAME = "metadata.json"
+MIME_MAP = {
+    ".wav": "audio/wav",
+    ".mid": "audio/midi",
+    ".midi": "audio/midi",
+    ".gp5": "application/octet-stream",
+    ".musicxml": "application/vnd.recordare.musicxml+xml",
+}
 
 
 app = FastAPI(title="Stem2Tab API")
@@ -55,6 +63,24 @@ def _list_job_files(job_id: str) -> list[str]:
         files.append(path.name)
     files.sort()
     return files
+
+
+def _resolve_job_file(job_id: str, name: str) -> Path:
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="name is required")
+
+    # prevent traversal
+    if "/" in name or "\\" in name or ".." in Path(name).parts or Path(name).is_absolute():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file name")
+
+    job_dir = _job_dir(job_id)
+    if not job_dir.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    file_path = job_dir / name
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    return file_path
 
 
 def _validate_upload(file: UploadFile) -> str:
@@ -181,4 +207,12 @@ def get_job(job_id: str) -> JobStatusResponse:
     """Retrieve the current status for a job."""
     metadata = _load_metadata(job_id)
     return _refresh_status(job_id, metadata)
+
+
+@app.get("/api/v1/files/{job_id}")
+def download_file(job_id: str, name: str = Query(..., description="File name to download")) -> FileResponse:
+    """Download an artifact for a given job."""
+    file_path = _resolve_job_file(job_id, name)
+    mime = MIME_MAP.get(file_path.suffix.lower(), "application/octet-stream")
+    return FileResponse(file_path, media_type=mime, filename=file_path.name)
 
