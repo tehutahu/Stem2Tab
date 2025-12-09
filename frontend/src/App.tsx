@@ -1,3 +1,6 @@
+import { Route, Routes } from "react-router-dom";
+
+import Demo from "./pages/Demo";
 import Upload from "./pages/Upload";
 
 function App(): JSX.Element {
@@ -6,10 +9,13 @@ function App(): JSX.Element {
       <header style={{ marginBottom: "1rem" }}>
         <h1>Stem2Tab</h1>
         <p style={{ color: "#4b5563" }}>
-          Upload audio, track progress, and preview tablature (AlphaTab placeholder).
+          Upload audio, track progress, and preview tablature with demo playback.
         </p>
       </header>
-      <Upload />
+      <Routes>
+        <Route path="/" element={<Upload />} />
+        <Route path="/demo/:jobId" element={<Demo />} />
+      </Routes>
     </main>
   );
 }

@@ -26,7 +26,12 @@ MIME_MAP = {
     ".opus": "audio/opus",
     ".mid": "audio/midi",
     ".midi": "audio/midi",
+    ".gp3": "application/octet-stream",
+    ".gp4": "application/octet-stream",
     ".gp5": "application/octet-stream",
+    ".gpx": "application/octet-stream",
+    ".xml": "application/xml",
+    ".mxl": "application/vnd.recordare.musicxml",
     ".musicxml": "application/vnd.recordare.musicxml+xml",
 }
 

@@ -1,8 +1,10 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import AlphaTabViewer from "../components/AlphaTabViewer";
-import { API_BASE } from "../config";
+import { ALPHATAB_SOUNDFONT, API_BASE } from "../config";
 import { JobStatus, useJobPolling } from "../hooks/useJobPolling";
+import { ALPHATAB_SUPPORTED_LABEL, listAlphaTabScores, pickAlphaTabScore } from "../utils/alphaTab";
 
 interface SubmitState {
   isSubmitting: boolean;
@@ -15,6 +17,7 @@ function Upload(): JSX.Element {
   const [submitState, setSubmitState] = useState<SubmitState>({ isSubmitting: false });
 
   const polling = useJobPolling(jobId, 2000);
+  const files = polling.data?.files ?? [];
 
   const statusLabel = useMemo(() => {
     if (submitState.isSubmitting) return "Uploading...";
@@ -26,6 +29,25 @@ function Upload(): JSX.Element {
     if (polling.data?.progress === undefined) return undefined;
     return `${polling.data.progress}%`;
   }, [polling.data?.progress]);
+
+  const alphaTabScores = useMemo(() => listAlphaTabScores(files), [files]);
+  const [selectedScore, setSelectedScore] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    setSelectedScore((prev) => (prev && alphaTabScores.includes(prev) ? prev : alphaTabScores[0]));
+  }, [alphaTabScores]);
+  const midi = useMemo(() => files.find((name) => name.toLowerCase().endsWith(".mid")), [files]);
+  const scoreSelection = useMemo(() => {
+    const alphaTabScore = selectedScore ?? pickAlphaTabScore(files);
+    return { alphaTabScore, midi };
+  }, [files, midi, selectedScore]);
+
+  const scoreUrl = useMemo(() => {
+    const scoreFile = scoreSelection.alphaTabScore;
+    if (!polling.data?.job_id || !scoreFile) return undefined;
+    return `${API_BASE}/api/v1/files/${polling.data.job_id}?name=${encodeURIComponent(scoreFile)}`;
+  }, [polling.data?.job_id, scoreSelection.alphaTabScore]);
+  const hasAlphaTabScore = Boolean(scoreSelection.alphaTabScore);
+  const hasMidiOnly = !hasAlphaTabScore && Boolean(scoreSelection.midi);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -105,11 +127,11 @@ function Upload(): JSX.Element {
         {polling.error && <p style={{ color: "#dc2626" }}>Error: {polling.error}</p>}
         {submitState.error && <p style={{ color: "#dc2626" }}>Error: {submitState.error}</p>}
         {polling.data?.error && <p style={{ color: "#dc2626" }}>Error: {polling.data.error}</p>}
-        {polling.data?.files && polling.data.files.length > 0 && (
+        {files.length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
             <p>Artifacts:</p>
             <ul>
-              {polling.data.files.map((fileName) => {
+              {files.map((fileName) => {
                 const href = `${API_BASE}/api/v1/files/${polling.data?.job_id}?name=${encodeURIComponent(fileName)}`;
                 return (
                   <li key={fileName}>
@@ -122,9 +144,40 @@ function Upload(): JSX.Element {
             </ul>
           </div>
         )}
-        {polling.data?.result && (
-          <div style={{ marginTop: "1rem" }}>
-            <AlphaTabViewer scoreUrl={undefined} />
+        {!hasAlphaTabScore && files.length > 0 ? (
+          <p style={{ color: "#dc2626" }}>
+            AlphaTab対応のスコア({ALPHATAB_SUPPORTED_LABEL})がまだ生成されていません。
+            {hasMidiOnly ? " 生成済みのMIDIはダウンロードできます (AlphaTabは未対応)。" : ""}
+          </p>
+        ) : null}
+        {scoreUrl && (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
+            {alphaTabScores.length > 1 && (
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <label>
+                  スコア切替:{" "}
+                  <select
+                    value={selectedScore ?? ""}
+                    onChange={(event) => setSelectedScore(event.target.value || undefined)}
+                  >
+                    {alphaTabScores.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            <AlphaTabViewer scoreUrl={scoreUrl} soundFontUrl={ALPHATAB_SOUNDFONT} />
+            {polling.data?.job_id && (
+              <Link
+                to={`/demo/${polling.data.job_id}`}
+                style={{ color: "#2563eb", textDecoration: "underline" }}
+              >
+                デモを見る
+              </Link>
+            )}
           </div>
         )}
       </div>
