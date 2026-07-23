@@ -16,6 +16,7 @@ Stem2Tab/
 │   ├── pyproject.toml         # uv 用
 │   ├── src/
 │   │   ├── api/               # FastAPI ルート
+│   │   ├── evaluation/        # ベンチマーク、共通ノート、評価指標
 │   │   ├── pipelines/         # 現行の分離、採譜、Tab出力
 │   │   ├── worker/            # Celeryタスク
 │   │   └── core/              # 設定、ログ
@@ -29,8 +30,7 @@ Stem2Tab/
 │       └── pages/
 ├── docs/                      # ドキュメント
 ├── data/                      # 成果物保存先 (gitignore)
-└── .agent/                    # AIエージェント用ルール
-    └── rules/
+└── AGENTS.md                  # AIエージェント用ルール
 ```
 
 > [!NOTE]
@@ -136,22 +136,13 @@ function Fretboard(props: any) {
 ## 4. モジュール分離の原則
 
 > [!IMPORTANT]
-> 3つのモジュールは独立して動作可能であること
+> 分離、採譜、ノート後処理、リズム量子化、記譜を疎結合にすること
 
-| モジュール | 依存 | テスト方法 |
-|:---|:---|:---|
-| **① Tab譜生成** | 音源ファイル | 単体テスト: モックMIDI |
-| **② Tab譜ビューア/デモ** | GP5/MXL | 単体テスト: サンプルGP5 |
-| **③ Tab譜編集** | GP5/MXL | 単体テスト: サンプルGP5 |
-
-```python
-# ✅ 良い例: モジュール間の依存を明確に
-from pipelines.separation import separate_bass  # ① 生成モジュール内
-from pipelines.transcription import transcribe  # ① 生成モジュール内
-
-# ❌ 悪い例: フロントエンドロジックをバックエンドに混入
-from frontend.components import Fretboard  # これはNG
-```
+- 分離器と採譜器はアダプター経由で交換可能にする。
+- ベンチマークCLIはWeb APIやCeleryを経由せず独立して実行できるようにする。
+- Basic Pitchの生MIDIをScore MIDIとして扱わない。
+- Web workerへ候補方式を接続するのは、同じ入力で比較して採用方式を決めた後にする。
+- フロントエンドの表示・編集ロジックをバックエンドの採譜処理へ混入させない。
 
 ---
 
@@ -289,12 +280,13 @@ make test-all
 > [!CAUTION]
 > **以下の点に特に注意してください**
 
-1. **音源分離は Demucs 固定** (TensorFlow 依存なし)
+1. **現行ベースラインは Demucs + Basic Pitch**。評価基盤ではアダプターで交換可能に保つ
 2. **pip は使用しない** → uv を使用
 3. **TensorFlow は使用しない** → Basic Pitch は ONNX バックエンド
-4. **GPU が標準** → CPU はフォールバック
-5. **GP6/GP7 は PyGuitarPro で非対応** → GP5 を出力
-6. **モジュール分離を維持** → 生成/ビューア/編集 は独立
+4. **正解MIDIは現時点で存在しない** → `--reference`なしの聴感比較を既定とする
+5. **GPU が標準** → CPU はフォールバック
+6. **GP6/GP7 は PyGuitarPro で非対応** → GP5 を出力
+7. **モジュール分離を維持** → 分離/採譜/後処理/量子化/記譜を疎結合にする
 
 ### 関連ドキュメント参照
 
