@@ -50,7 +50,7 @@
 
 - Mock heavy external backends such as Demucs and Basic Pitch in unit tests.
 - Keep one focused real Basic Pitch ONNX integration smoke test.
-- For evaluation changes, run the four `test_evaluation_*.py` unit modules.
+- For evaluation changes, run all `test_evaluation_*.py` unit modules.
 - Run relevant existing backend tests after changing shared pipeline code.
 - Always run `npm test` after modifying JavaScript or TypeScript files.
 - Do not require copyrighted audio or checked-in binary reference MIDI for tests; synthesize small temporary fixtures.

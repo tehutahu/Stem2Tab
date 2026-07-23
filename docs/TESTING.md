@@ -260,8 +260,15 @@ uv run python -m src.evaluation.benchmark \
 ```
 
 各runにはBasic Pitchの `raw.mid`、標準化した `events.json` / `events.csv`、
-`performance.mid`、`metrics.json` を保存します。ルートには `comparison.json`、
-`comparison.csv`、`report.md`、入力SHA-256や環境情報を持つ `manifest.json` を保存します。
+`performance.mid`、依存追加なしの簡易Bass音色で音声化した `preview.wav`、`metrics.json` を
+保存します。ルートには `comparison.json`、`comparison.csv`、`report.md`、入力SHA-256や
+環境情報を持つ `manifest.json` を保存します。
+
+`report.html` では、元曲、分離Bass Stem、各MIDIプレビューを同じ再生位置で切り替えられます。
+評価したい区間でA点とB点を設定するとループ再生できます。ローカルファイル再生がブラウザに
+拒否される場合は、成果物ディレクトリで `uv run python -m http.server 8765` を実行して
+`http://localhost:8765/report.html` を開きます。
+
 正解MIDIなしでは正解依存の指標を空欄にし、ノート数と処理時間を記録します。Score MIDIと
 拍量子化はPhase Dの対象です。
 
@@ -272,6 +279,7 @@ cd backend
 uv run pytest \
   tests/unit/test_evaluation_models_io.py \
   tests/unit/test_evaluation_metrics.py \
+  tests/unit/test_evaluation_preview.py \
   tests/unit/test_evaluation_adapters.py \
   tests/unit/test_evaluation_benchmark.py -q
 ```

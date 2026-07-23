@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import platform
+import shutil
 import sys
 from datetime import datetime, timezone
 from importlib import metadata
@@ -29,11 +30,15 @@ from src.evaluation.io import (
 )
 from src.evaluation.metrics import MetricConfig, evaluate_note_events
 from src.evaluation.models import NoteEventSet
+from src.evaluation.preview import write_preview_wav
 from src.evaluation.reporting import (
+    AudioTrack,
     RunRecord,
+    render_html_report,
     render_markdown_report,
     write_comparison_csv,
     write_comparison_json,
+    write_html_report,
     write_markdown_report,
     write_run_metrics,
 )
@@ -135,6 +140,20 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
     )
     output_dir = _prepare_output_dir(args.output_dir, audio_path=audio_path)
     started_at = _utc_now()
+    original_relative_path = Path("audio") / f"original{audio_path.suffix.lower()}"
+    original_artifact = output_dir / original_relative_path
+    original_artifact.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(audio_path, original_artifact)
+    source_tracks = [
+        AudioTrack(
+            track_id="original",
+            label="Original audio",
+            kind="source",
+            relative_path=original_relative_path.as_posix(),
+        )
+    ]
+    separator_tracks: list[AudioTrack] = []
+    preview_tracks: list[AudioTrack] = []
 
     if reference is not None:
         reference_dir = output_dir / "reference"
@@ -168,6 +187,18 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
                 },
                 "metadata": separated.metadata,
             }
+            bass_artifact = separated.artifacts.get("bass")
+            if bass_artifact is not None:
+                separator_tracks.append(
+                    AudioTrack(
+                        track_id=f"{separator_name}-bass",
+                        label=f"{separator_name} bass stem",
+                        kind="separated_audio",
+                        relative_path=bass_artifact.resolve()
+                        .relative_to(output_dir)
+                        .as_posix(),
+                    )
+                )
         except Exception as exc:
             separator_seconds = perf_counter() - separator_started
             error = _format_error(exc)
@@ -216,6 +247,17 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
                     estimated,
                     run_dir / "performance.mid",
                     instrument_name=f"Stem2Tab {run_id}",
+                )
+                preview_path = write_preview_wav(estimated, run_dir / "preview.wav")
+                preview_tracks.append(
+                    AudioTrack(
+                        track_id=f"{run_id}-preview",
+                        label=f"{run_id} MIDI preview",
+                        kind="midi_preview",
+                        relative_path=preview_path.resolve()
+                        .relative_to(output_dir)
+                        .as_posix(),
+                    )
                 )
                 transcription_seconds = perf_counter() - transcription_started
                 metrics = (
@@ -269,6 +311,14 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
         reference_available=reference is not None,
     )
     write_markdown_report(report, output_dir / "report.md")
+    audio_tracks = source_tracks + separator_tracks + preview_tracks
+    html_report = render_html_report(
+        records,
+        audio_tracks,
+        generated_at=completed_at,
+        reference_available=reference is not None,
+    )
+    write_html_report(html_report, output_dir / "report.html")
     _write_manifest(
         output_dir / "manifest.json",
         started_at=started_at,
@@ -281,6 +331,7 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
         adapter_config=adapter_config,
         separator_details=separator_details,
         records=records,
+        audio_tracks=audio_tracks,
     )
     return output_dir, records, report
 
@@ -386,6 +437,7 @@ def _write_manifest(
     adapter_config: AdapterConfig,
     separator_details: dict[str, dict[str, object]],
     records: list[RunRecord],
+    audio_tracks: list[AudioTrack],
 ) -> None:
     package_names = (
         "stem2tab",
@@ -405,6 +457,10 @@ def _write_manifest(
             "reference": _file_metadata(reference_path) if reference_path is not None else None,
         },
         "reference_available": reference_path is not None,
+        "listening": {
+            "report": "report.html",
+            "tracks": [track.model_dump(mode="json") for track in audio_tracks],
+        },
         "requested": {
             "separators": separator_names,
             "transcribers": transcriber_names,

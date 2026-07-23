@@ -193,10 +193,18 @@ uv run python -m src.evaluation.benchmark \
 ```
 
 成果物は既定で `benchmark_results/<音源名>-<UTC時刻>/` に保存されます。各条件の生MIDI、
-共通ノートイベントJSON/CSV、Performance MIDI、`report.md`、比較用JSON/CSV、実行環境を
-記録したmanifestが生成されます。正解MIDIなしの場合、正解依存の指標は空欄になります。
-`--output-dir`を指定した場合、既存ファイルを誤って混在させないため、出力先は新規または
-空のディレクトリである必要があります。
+共通ノートイベントJSON/CSV、Performance MIDI、MIDIを音声化した `preview.wav`、
+比較用JSON/CSV、実行環境を記録したmanifestが生成されます。`report.html` をブラウザで開くと、
+元曲、Bass Stem、各MIDIプレビューを同じ再生位置で切り替え、A-B区間をループできます。
+正解MIDIなしの場合、正解依存の指標は空欄になります。`--output-dir`を指定した場合、既存
+ファイルを誤って混在させないため、出力先は新規または空のディレクトリである必要があります。
+
+ブラウザがローカル音声をブロックする場合は、成果物ディレクトリで次を実行し、
+`http://localhost:8765/report.html` を開いてください。
+
+```bash
+uv run python -m http.server 8765
+```
 
 ### テスト
 

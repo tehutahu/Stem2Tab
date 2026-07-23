@@ -106,6 +106,7 @@ def test_cli_writes_complete_success_artifacts(
     assert exit_code == 0
     for relative_path in (
         "manifest.json",
+        "audio/original.wav",
         "reference/events.json",
         "reference/events.csv",
         "reference/reference.mid",
@@ -113,10 +114,12 @@ def test_cli_writes_complete_success_artifacts(
         "runs/direct__fake/events.json",
         "runs/direct__fake/events.csv",
         "runs/direct__fake/performance.mid",
+        "runs/direct__fake/preview.wav",
         "runs/direct__fake/metrics.json",
         "comparison.json",
         "comparison.csv",
         "report.md",
+        "report.html",
     ):
         assert (output_dir / relative_path).is_file(), relative_path
 
@@ -129,6 +132,13 @@ def test_cli_writes_complete_success_artifacts(
     assert manifest["requested"]["separators"] == ["direct"]
     assert manifest["metric_config"]["frame_hop_ms"] == 10.0
     assert manifest["runs"][0]["adapter_metadata"]["backend"] == "fake"
+    assert [track["track_id"] for track in manifest["listening"]["tracks"]] == [
+        "original",
+        "direct__fake-preview",
+    ]
+    html_report = (output_dir / "report.html").read_text(encoding="utf-8")
+    assert "Stem2Tab Listening Comparison" in html_report
+    assert "direct__fake MIDI preview" in html_report
     output = capsys.readouterr().out
     assert "direct__fake" in output
     assert f"Artifacts: {output_dir}" in output
@@ -158,8 +168,11 @@ def test_cli_without_reference_produces_listening_artifacts(
 
     assert exit_code == 0
     assert not (output_dir / "reference").exists()
+    assert (output_dir / "audio/original.wav").is_file()
     assert (output_dir / "runs/direct__fake/raw.mid").is_file()
     assert (output_dir / "runs/direct__fake/performance.mid").is_file()
+    assert (output_dir / "runs/direct__fake/preview.wav").is_file()
+    assert (output_dir / "report.html").is_file()
     comparison = json.loads((output_dir / "comparison.json").read_text(encoding="utf-8"))
     assert comparison["reference_available"] is False
     assert comparison["runs"][0]["metrics"] is None
@@ -203,6 +216,7 @@ def test_cli_continues_after_transcriber_failure(
     assert (output_dir / "runs/broken").exists() is False
     assert (output_dir / "runs/direct__broken/metrics.json").is_file()
     assert (output_dir / "runs/direct__fake/performance.mid").is_file()
+    assert (output_dir / "runs/direct__fake/preview.wav").is_file()
 
 
 def test_cli_reuses_each_separator_for_all_transcribers(
