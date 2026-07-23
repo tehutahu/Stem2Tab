@@ -236,7 +236,8 @@ uv run python -m src.evaluation.benchmark \
 
 既定条件は `direct × basic_pitch` です。Demucsを含める場合は
 `--separators direct,demucs` を指定します。separatorは1回だけ実行され、その出力を選択した
-全transcriberで共有します。
+全transcriberで共有します。ローカルのDemucsモデルキャッシュは既定で
+`<カレントディレクトリ>/.cache/demucs/` を使用し、Docker向けの `/data` は使用しません。
 
 主な既定評価条件:
 

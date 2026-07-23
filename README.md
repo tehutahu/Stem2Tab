@@ -176,9 +176,11 @@ uv run python -m src.evaluation.benchmark \
 uv run python -m src.evaluation.benchmark \
   --audio /path/to/song.wav \
   --separators direct,demucs \
-  --demucs-model htdemucs \
-  --demucs-cache-dir ../data/cache/demucs
+  --demucs-model htdemucs
 ```
+
+ローカル実行時のDemucsモデルは、既定でカレントディレクトリの `.cache/demucs/` に保存します。
+別の場所を使う場合だけ `--demucs-cache-dir` を指定してください。
 
 将来、Bass専用の正解MIDIを入手または作成できた場合は `--reference` を追加すると、
 onset/onset+offset/frame F1、過剰・欠落ノート、オクターブ誤り等も計算します。正解MIDI内の

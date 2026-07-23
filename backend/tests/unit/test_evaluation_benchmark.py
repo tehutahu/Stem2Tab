@@ -140,6 +140,7 @@ def test_cli_without_reference_produces_listening_artifacts(
     capsys,
 ) -> None:
     monkeypatch.setitem(adapters.TRANSCRIBER_ADAPTERS, "fake", FakeTranscriber())
+    monkeypatch.chdir(tmp_path)
     audio_path = tmp_path / "audio.wav"
     audio_path.write_bytes(b"synthetic audio placeholder")
     output_dir = tmp_path / "output"
@@ -166,6 +167,7 @@ def test_cli_without_reference_produces_listening_artifacts(
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["reference_available"] is False
     assert manifest["inputs"]["reference"] is None
+    assert manifest["adapter_config"]["demucs_cache_dir"] == str(tmp_path / ".cache/demucs")
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "Reference MIDI: not provided" in report
     assert "| direct__fake | success | 2 |" in report

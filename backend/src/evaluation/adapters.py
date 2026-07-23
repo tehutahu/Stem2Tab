@@ -106,6 +106,7 @@ class DemucsSeparator:
         *,
         config: AdapterConfig,
     ) -> SeparationResult:
+        config.demucs_cache_dir.mkdir(parents=True, exist_ok=True)
         stems = separate_stems(
             input_audio=audio_path,
             output_dir=output_dir,

@@ -86,7 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--demucs-cache-dir",
         type=Path,
-        default=settings.demucs_cache_dir,
+        help="Demucs model cache (default: .cache/demucs under the current directory)",
     )
     return parser
 
@@ -128,9 +128,10 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
         offset_min_tolerance_ms=args.offset_min_tolerance_ms,
         frame_hop_ms=args.frame_hop_ms,
     )
+    demucs_cache_dir = args.demucs_cache_dir or Path.cwd() / ".cache" / "demucs"
     adapter_config = AdapterConfig(
         demucs_model=args.demucs_model,
-        demucs_cache_dir=args.demucs_cache_dir.resolve(),
+        demucs_cache_dir=demucs_cache_dir.resolve(),
     )
     output_dir = _prepare_output_dir(args.output_dir, audio_path=audio_path)
     started_at = _utc_now()

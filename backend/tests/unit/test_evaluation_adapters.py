@@ -57,6 +57,7 @@ def test_demucs_separator_selects_bass_and_preserves_artifacts(
     assert set(result.artifacts) == {"bass", "drums"}
     assert calls["model_name"] == "test-model"
     assert calls["cache_dir"] == config.demucs_cache_dir
+    assert config.demucs_cache_dir.is_dir()
 
 
 def test_demucs_separator_requires_bass_stem(tmp_path: Path, monkeypatch) -> None:
