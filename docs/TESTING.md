@@ -212,10 +212,77 @@ test('upload and download bass tab', async ({ page }) => {
 
 公開データセットは、数量、ライセンス、保存方法を合意するまで一括ダウンロードしません。
 
+- **現時点で利用可能な正解MIDIはありません。** 当面は生成したBass StemとMIDIの聴感比較を
+  主な評価方法とし、正解依存の指標は正解MIDIを入手または作成できた後に使用します。
 - 初期ベンチマークはユーザーが用意する数曲の短い区間を入力可能にする。
 - 正解MIDIがある場合はonset/offset/frame F1等を計測する。
 - 正解MIDIがない場合も、モデル・パラメータ別成果物、聴感、修正量を比較可能にする。
 - 曲数、区間長、正解作成、公開データの利用範囲は実装前に相談して決定する。
+
+### Phase A ベンチマークCLI
+
+Web workerを介さず同じ入力を処理し、生成されたBass Stem、Raw MIDI、Performance MIDIを
+耳で比較できます。`--reference` は任意です。
+
+```bash
+cd backend
+uv sync --locked --dev
+./scripts/install_basic_pitch.sh
+
+uv run python -m src.evaluation.benchmark \
+  --audio /path/to/song.wav \
+  --output-dir /tmp/stem2tab-benchmark
+```
+
+既定条件は `direct × basic_pitch` です。Demucsを含める場合は
+`--separators direct,demucs` を指定します。separatorは1回だけ実行され、その出力を選択した
+全transcriberで共有します。ローカルのDemucsモデルキャッシュは既定で
+`<カレントディレクトリ>/.cache/demucs/` を使用し、Docker向けの `/data` は使用しません。
+
+主な既定評価条件:
+
+| 指標 | 既定値 |
+|:---|:---|
+| onset許容 | 50 ms |
+| pitch許容 | 50 cents |
+| offset許容 | 正解音価の20%、最低50 ms |
+| frame間隔 | 10 ms |
+
+許容値は `--onset-tolerance-ms`、`--pitch-tolerance-cents`、`--offset-ratio`、
+`--offset-min-tolerance-ms`、`--frame-hop-ms` で変更でき、manifestへ記録されます。
+正解MIDIを指定した場合だけ、onset/onset+offsetは `mir_eval`、frame F1、extra/missed、
+duration MAE、±12半音のoctave errorは共通ノートイベントから算出します。
+
+```bash
+uv run python -m src.evaluation.benchmark \
+  --audio /path/to/song.wav \
+  --reference /path/to/reference.mid
+```
+
+各runにはBasic Pitchの `raw.mid`、標準化した `events.json` / `events.csv`、
+`performance.mid`、依存追加なしの簡易Bass音色で音声化した `preview.wav`、`metrics.json` を
+保存します。ルートには `comparison.json`、`comparison.csv`、`report.md`、入力SHA-256や
+環境情報を持つ `manifest.json` を保存します。
+
+`report.html` では、元曲、分離Bass Stem、各MIDIプレビューを同じ再生位置で切り替えられます。
+評価したい区間でA点とB点を設定するとループ再生できます。ローカルファイル再生がブラウザに
+拒否される場合は、成果物ディレクトリで `uv run python -m http.server 8765` を実行して
+`http://localhost:8765/report.html` を開きます。
+
+正解MIDIなしでは正解依存の指標を空欄にし、ノート数と処理時間を記録します。Score MIDIと
+拍量子化はPhase Dの対象です。
+
+新規評価テストは実モデルをロードせず、短い合成ノートと一時生成MIDIで実行します。
+
+```bash
+cd backend
+uv run pytest \
+  tests/unit/test_evaluation_models_io.py \
+  tests/unit/test_evaluation_metrics.py \
+  tests/unit/test_evaluation_preview.py \
+  tests/unit/test_evaluation_adapters.py \
+  tests/unit/test_evaluation_benchmark.py -q
+```
 
 ## パフォーマンステスト
 

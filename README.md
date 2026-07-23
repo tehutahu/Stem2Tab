@@ -36,6 +36,7 @@ Stem2Tab/
 │   ├── pyproject.toml         # uv 用
 │   ├── src/
 │   │   ├── api/               # FastAPI ルート
+│   │   ├── evaluation/        # 採譜ベンチマーク、共通ノート、評価指標
 │   │   ├── pipelines/         # 現行の分離、採譜、Tab出力
 │   │   ├── worker/            # Celeryタスク
 │   │   └── core/              # 設定、ログ
@@ -49,8 +50,7 @@ Stem2Tab/
 │       └── pages/
 ├── docs/                      # ドキュメント
 ├── data/                      # 成果物保存先 (gitignore)
-└── .agent/                    # AIエージェント用ルール
-    └── rules/
+└── AGENTS.md                  # AIエージェント用ルール
 ```
 
 ## 技術スタック
@@ -150,6 +150,60 @@ uv run uvicorn src.api.main:app --reload
 # フロントエンド (開発サーバー)
 cd frontend
 npm run dev
+```
+
+### 採譜ベンチマークCLI
+
+> [!IMPORTANT]
+> 現時点で、このプロジェクトには信頼できる正解MIDIがありません。まず生成されたBass Stemと
+> MIDIを耳で比較し、採用候補を絞ります。正解MIDIは将来入手・作成できた場合だけ使用します。
+
+楽曲を既存Basic Pitch経路で処理し、聴感比較用のMIDIとノートイベントを生成できます。
+既定では音源分離を行わず、音声を直接Basic Pitchへ渡します。
+
+```bash
+cd backend
+uv sync --locked --dev
+./scripts/install_basic_pitch.sh
+
+uv run python -m src.evaluation.benchmark \
+  --audio /path/to/song.wav
+```
+
+既存Demucsとの比較を含める場合:
+
+```bash
+uv run python -m src.evaluation.benchmark \
+  --audio /path/to/song.wav \
+  --separators direct,demucs \
+  --demucs-model htdemucs
+```
+
+ローカル実行時のDemucsモデルは、既定でカレントディレクトリの `.cache/demucs/` に保存します。
+別の場所を使う場合だけ `--demucs-cache-dir` を指定してください。
+
+将来、Bass専用の正解MIDIを入手または作成できた場合は `--reference` を追加すると、
+onset/onset+offset/frame F1、過剰・欠落ノート、オクターブ誤り等も計算します。正解MIDI内の
+全非ドラムトラックは1つのBassパートとして統合します。
+
+```bash
+uv run python -m src.evaluation.benchmark \
+  --audio /path/to/song.wav \
+  --reference /path/to/reference.mid
+```
+
+成果物は既定で `benchmark_results/<音源名>-<UTC時刻>/` に保存されます。各条件の生MIDI、
+共通ノートイベントJSON/CSV、Performance MIDI、MIDIを音声化した `preview.wav`、
+比較用JSON/CSV、実行環境を記録したmanifestが生成されます。`report.html` をブラウザで開くと、
+元曲、Bass Stem、各MIDIプレビューを同じ再生位置で切り替え、A-B区間をループできます。
+正解MIDIなしの場合、正解依存の指標は空欄になります。`--output-dir`を指定した場合、既存
+ファイルを誤って混在させないため、出力先は新規または空のディレクトリである必要があります。
+
+ブラウザがローカル音声をブロックする場合は、成果物ディレクトリで次を実行し、
+`http://localhost:8765/report.html` を開いてください。
+
+```bash
+uv run python -m http.server 8765
 ```
 
 ### テスト
