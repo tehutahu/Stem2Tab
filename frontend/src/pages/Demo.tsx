@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import AlphaTabViewer from "../components/AlphaTabViewer";
 import Fretboard, { type FretboardNote } from "../components/Fretboard";
 import { ALPHATAB_SOUNDFONT, API_BASE } from "../config";
 import { useJobPolling } from "../hooks/useJobPolling";
@@ -10,6 +9,9 @@ import { ALPHATAB_SUPPORTED_LABEL, listAlphaTabScores, pickAlphaTabScore } from 
 type PlayerState = "stopped" | "playing" | "paused";
 
 const AUDIO_EXT_REGEX = /\.(wav|mp3|ogg|flac|opus|m4a)$/i;
+
+// Keep the large AlphaTab renderer out of the initial page bundle.
+const AlphaTabViewer = lazy(() => import("../components/AlphaTabViewer"));
 
 function Demo(): JSX.Element {
   const params = useParams<{ jobId: string }>();
@@ -149,12 +151,14 @@ function Demo(): JSX.Element {
             </div>
           )}
 
-          <AlphaTabViewer
-            scoreUrl={artifactUrl(scoreFile)}
-            soundFontUrl={ALPHATAB_SOUNDFONT}
-            onActiveNotesChange={setActiveNotes}
-            onPlayerStateChange={handlePlayerStateChange}
-          />
+          <Suspense fallback={<p>譜面ビューアを読み込んでいます…</p>}>
+            <AlphaTabViewer
+              scoreUrl={artifactUrl(scoreFile)}
+              soundFontUrl={ALPHATAB_SOUNDFONT}
+              onActiveNotesChange={setActiveNotes}
+              onPlayerStateChange={handlePlayerStateChange}
+            />
+          </Suspense>
 
           <div>
             <h3 style={{ marginBottom: "0.5rem" }}>フレットボード</h3>
@@ -167,5 +171,4 @@ function Demo(): JSX.Element {
 }
 
 export default Demo;
-
 

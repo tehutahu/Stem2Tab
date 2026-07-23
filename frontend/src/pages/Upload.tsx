@@ -1,7 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import AlphaTabViewer from "../components/AlphaTabViewer";
 import { ALPHATAB_SOUNDFONT, API_BASE } from "../config";
 import { JobStatus, useJobPolling } from "../hooks/useJobPolling";
 import { ALPHATAB_SUPPORTED_LABEL, listAlphaTabScores, pickAlphaTabScore } from "../utils/alphaTab";
@@ -10,6 +9,10 @@ interface SubmitState {
   isSubmitting: boolean;
   error?: string;
 }
+
+// AlphaTab includes its renderer and player, so defer downloading it until a
+// score is available to display.
+const AlphaTabViewer = lazy(() => import("../components/AlphaTabViewer"));
 
 function Upload(): JSX.Element {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -169,7 +172,9 @@ function Upload(): JSX.Element {
                 </label>
               </div>
             )}
-            <AlphaTabViewer scoreUrl={scoreUrl} soundFontUrl={ALPHATAB_SOUNDFONT} />
+            <Suspense fallback={<p>譜面ビューアを読み込んでいます…</p>}>
+              <AlphaTabViewer scoreUrl={scoreUrl} soundFontUrl={ALPHATAB_SOUNDFONT} />
+            </Suspense>
             {polling.data?.job_id && (
               <Link
                 to={`/demo/${polling.data.job_id}`}
@@ -186,4 +191,3 @@ function Upload(): JSX.Element {
 }
 
 export default Upload;
-

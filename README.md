@@ -164,6 +164,16 @@ cd frontend
 npm test -- --run
 ```
 
+### npm のプロキシ警告
+
+npm では、環境変数から設定された `npm_config_http_proxy` / `npm_config_https_proxy`
+（または `http-proxy` / `https-proxy`）が将来のメジャーバージョンで廃止予定です。
+プロキシが必要な環境では、プロキシの標準環境変数 (`HTTP_PROXY`、`HTTPS_PROXY`、
+`NO_PROXY`) のみを設定し、npm 固有の変数は削除してください。例えば、ローカルの
+シェル設定や CI 設定から `npm_config_http_proxy` と `npm_config_https_proxy` を削除します。
+これは開発環境の設定に起因する警告であり、アプリケーションの実行時プロキシ
+（`API_PROXY_TARGET`）とは別の設定です。
+
 ## ライセンス
 
 MIT License

@@ -26,10 +26,14 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // AlphaTab is loaded on demand by the score viewer. Its standalone bundle
+    // is intentionally larger than Vite's default warning threshold.
+    chunkSizeWarningLimit: 1400,
+  },
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
   },
 });
-
