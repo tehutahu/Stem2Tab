@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 
+import { API_BASE } from "../config";
+
 export interface JobStatus {
   job_id: string;
   status: string;
+  progress?: number;
+  files?: string[];
   result?: unknown;
   error?: string | null;
 }
@@ -27,11 +31,12 @@ export function useJobPolling(jobId?: string, intervalMs = 2000): JobPollingStat
 
     let active = true;
     const controller = new AbortController();
+    let intervalId: number | undefined;
 
     const fetchStatus = async (): Promise<void> => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/v1/jobs/${jobId}`, { signal: controller.signal });
+        const response = await fetch(`${API_BASE}/api/v1/jobs/${jobId}`, { signal: controller.signal });
         if (!response.ok) {
           throw new Error(`Job status request failed (${response.status})`);
         }
@@ -39,6 +44,11 @@ export function useJobPolling(jobId?: string, intervalMs = 2000): JobPollingStat
         if (active) {
           setData(json);
           setError(undefined);
+          // 自動再描画が落ち着くよう、SUCCESS でポーリングを止める
+          if (json.status === "SUCCESS" && intervalId !== undefined) {
+            window.clearInterval(intervalId);
+            intervalId = undefined;
+          }
         }
       } catch (err) {
         if (!active) {
@@ -56,12 +66,14 @@ export function useJobPolling(jobId?: string, intervalMs = 2000): JobPollingStat
     };
 
     void fetchStatus();
-    const intervalId = window.setInterval(fetchStatus, intervalMs);
+    intervalId = window.setInterval(fetchStatus, intervalMs);
 
     return () => {
       active = false;
       controller.abort();
-      window.clearInterval(intervalId);
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
     };
   }, [jobId, intervalMs]);
 

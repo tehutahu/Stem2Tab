@@ -1,6 +1,11 @@
 # 実装計画
 
-## 実装フェーズ
+> [!IMPORTANT]
+> 実装優先順位は [ROADMAP.md](ROADMAP.md) と
+> [Issue #1](https://github.com/tehutahu/Stem2Tab/issues/1) を正本とします。
+> Web UIや運用機能を先に拡張せず、採譜品質を比較できる評価基盤を先に構築します。
+
+## 旧Web MVP計画（履歴）
 
 ```mermaid
 gantt
@@ -159,32 +164,26 @@ logger.info("demucs_complete", job_id=job_id, duration_sec=elapsed)
 - エラー率
 - GPU 利用率
 
-## 実装順序
+## 現在の実装順序
 
-1. **依存関係の整備**
-   - `uv` で `pyproject.toml` と `uv.lock` を作成
-   - Dockerfile を `uv sync` ベースに変更
+1. **評価契約を固定**
+   - 共通ノートイベントモデル
+   - MIDI/CSV/JSON入出力
+   - 設定と成果物のディレクトリ規約
+2. **ベンチマークCLIを実装**
+   - 手元の数曲を引数で指定
+   - Basic Pitchの複数パラメータを同じ入力で比較
+   - 評価値と比較レポートを保存
+3. **評価データ方針を相談して決定**
+   - 曲数、区間長、正解MIDI/TABの作成方法
+   - 公開データセットの取得量、ライセンス、派生物の保存範囲
+4. **候補方式を追加**
+   - pYIN等の古典ベースライン
+   - 合意したPESTO/TorchCREPE等のアダプター
+   - 新しい本番依存は追加前に確認
+5. **リズムと楽譜表現を分離**
+   - beat/downbeat、Performance MIDI、Score MIDI、量子化
+6. **TABと編集UIへ接続**
+   - DP運指最適化、MusicXML/GP5、修正操作の記録
 
-2. **API ステータス拡張**
-   - `PENDING`, `STARTED`, `RETRY`, `FAILURE`, `SUCCESS`
-   - `error` フィールドの追加
-
-3. **Tab割当ロジック実装**
-   - Phase 1: 最低弦への単純割当
-   - Phase 2: DP による運指コスト最小化
-
-4. **MusicXML 出力追加**
-   - `music21` または手動 XML 生成
-
-5. **フロントエンド改善**
-   - エラー表示
-   - ポーリング停止条件
-   - 再アップロード導線
-
-6. **S3 オプション**
-   - `boto3` による S3 アップロード
-   - Presigned URL 生成
-
-7. **監視とクリーンアップ**
-   - Prometheus メトリクスエンドポイント
-   - 古いジョブの定期削除
+大規模公開データセットのダウンロードとWeb UIの追加開発は、最初のベンチマーク結果を確認するまで保留します。

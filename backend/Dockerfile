@@ -25,7 +25,8 @@ WORKDIR /app
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock ./ 
+COPY scripts ./scripts
 
 # Use system Python (3.11 in base image) and cache uv downloads for faster rebuilds.
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -34,7 +35,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
       printf 'y\n' | uv pip uninstall onnxruntime || true && \
       uv pip install --no-deps onnxruntime-gpu==${ONNXRUNTIME_GPU_VERSION}; \
     fi && \
-    uv pip install --no-deps basic-pitch==0.4.0 && \
+    chmod +x scripts/install_basic_pitch.sh && \
+    ./scripts/install_basic_pitch.sh && \
     uv run --python ${UV_PYTHON_VERSION} python -V
 
 COPY src ./src

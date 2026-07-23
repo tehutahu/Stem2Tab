@@ -1,19 +1,28 @@
 # Stem2Tab
 
-音源ファイルからベースラインを抽出し、Tab譜（Guitar Pro / MusicXML）を自動生成するWebアプリケーション。
+音源ファイルからベースラインを抽出し、修正可能なMIDIとTab譜（Guitar Pro / MusicXML）を生成するWebアプリケーション。
 
 ## 概要
 
 ```mermaid
 flowchart LR
-    A[音源ファイル] --> B[Demucs]
-    B --> C[Bass Stem]
-    C --> D[Basic Pitch]
-    D --> E[MIDI]
-    E --> F[Tab割当ロジック]
-    F --> G[GP5 / MusicXML]
-    G --> H[AlphaTab でプレビュー]
+    A[原曲] --> B[音源分離]
+    A --> C[拍・ダウンビート推定]
+    B --> D[Bass Stem]
+    D --> E[F0・オンセット・ノート分割]
+    E --> F[Performance MIDI]
+    C --> G[楽譜量子化]
+    F --> G
+    G --> H[Score MIDI]
+    H --> I[弦・フレット割当]
+    I --> J[GP5 / MusicXML]
+    J --> K[AlphaTab で確認・修正]
 ```
+
+既存のDemucs→Basic Pitch→GP5/MusicXML処理はWebフローを検証するためのベースラインです。
+現在の最優先事項は採譜品質を測定・比較できる評価基盤であり、実装順序は
+[開発ロードマップ](docs/ROADMAP.md) と [Issue #1](https://github.com/tehutahu/Stem2Tab/issues/1)
+を正本とします。
 
 ## プロジェクト構造
 
@@ -27,8 +36,8 @@ Stem2Tab/
 │   ├── pyproject.toml         # uv 用
 │   ├── src/
 │   │   ├── api/               # FastAPI ルート
-│   │   ├── pipelines/         # Demucs, Basic Pitch の呼び出し
-│   │   ├── logic/             # Tab割当アルゴリズム
+│   │   ├── pipelines/         # 現行の分離、採譜、Tab出力
+│   │   ├── worker/            # Celeryタスク
 │   │   └── core/              # 設定、ログ
 │   └── tests/
 ├── frontend/                  # React フロントエンド
@@ -41,7 +50,7 @@ Stem2Tab/
 ├── docs/                      # ドキュメント
 ├── data/                      # 成果物保存先 (gitignore)
 └── .agent/                    # AIエージェント用ルール
-    └── workflows/
+    └── rules/
 ```
 
 ## 技術スタック
@@ -49,7 +58,7 @@ Stem2Tab/
 | レイヤー | 技術 |
 |:---|:---|
 | **音源分離** | [Demucs](https://github.com/facebookresearch/demucs) (Hybrid Transformer v4) |
-| **Audio-to-MIDI** | [Basic Pitch](https://github.com/spotify/basic-pitch) (ONNX) |
+| **採譜ベースライン** | [Basic Pitch](https://github.com/spotify/basic-pitch) (ONNX)。今後F0方式と比較 |
 | **Tab生成** | [PyGuitarPro](https://pyguitarpro.readthedocs.io/), [music21](https://web.mit.edu/music21/doc/) |
 | **バックエンド** | FastAPI + Celery + Redis |
 | **フロントエンド** | React + Vite + [AlphaTab](https://alphatab.net/) |
@@ -62,7 +71,7 @@ Stem2Tab/
 - Docker Compose: v2（`docker compose version`）
 - Python: 3.11+（`python3 --version`） ※パッケージは必ず uv を使用
 - uv: `uv --version`（未導入なら `curl -LsSf https://astral.sh/uv/install.sh | sh`）
-- Node.js: 18+（推奨20）（`node -v`）, npm: `npm -v`
+- Node.js: 20.19+ または 22.12+（`node -v`）, npm: `npm -v`
 - Git: `git --version`
 - GPU 利用時: NVIDIA ドライバ + NVIDIA Container Toolkit（`nvidia-smi` がホストで動作し、下記コンテナ確認が通ること）
 
@@ -81,7 +90,7 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi  # GPU
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/your-repo/Stem2Tab.git
+git clone https://github.com/tehutahu/Stem2Tab.git
 cd Stem2Tab
 
 # 環境変数の設定
@@ -105,6 +114,7 @@ open http://localhost:5173
 
 | ドキュメント | 内容 |
 |:---|:---|
+| [ROADMAP.md](docs/ROADMAP.md) | **現在の実装優先順位、評価データの判断事項** |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | システム構成、コンポーネント、デプロイ |
 | [DATAFLOW.md](docs/DATAFLOW.md) | パイプライン処理、ジョブ状態管理 |
 | [FEATURES.md](docs/FEATURES.md) | 機能一覧、Phase別ロードマップ |
@@ -135,7 +145,7 @@ npm install
 ```bash
 # バックエンド (開発サーバー)
 cd backend
-uv run uvicorn app.main:app --reload
+uv run uvicorn src.api.main:app --reload
 
 # フロントエンド (開発サーバー)
 cd frontend
@@ -151,7 +161,7 @@ uv run pytest
 
 # フロントエンド
 cd frontend
-npm test
+npm test -- --run
 ```
 
 ## ライセンス

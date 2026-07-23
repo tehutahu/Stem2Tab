@@ -30,8 +30,6 @@ jobs:
           python-version: "3.11"
 
       - name: Sync backend deps
-        env:
-          UV_FROZEN: "1"
         run: uv sync --locked --dev
 
       - name: Install Basic Pitch (ONNX only)
@@ -69,4 +67,3 @@ jobs:
 
       - name: Build frontend
         run: npm run build
-

@@ -1,6 +1,10 @@
 # データフロー
 
-## パイプライン概要
+> [!IMPORTANT]
+> この文書は現行Webフローと目標採譜フローを分けて記述します。
+> 実装順序は [ROADMAP.md](ROADMAP.md) を正本とします。
+
+## 現行Webパイプライン
 
 音源ファイルのアップロードから成果物のダウンロードまでの一連の流れを示します。
 
@@ -41,29 +45,46 @@ sequenceDiagram
     Web->>User: ダウンロード/プレビュー
 ```
 
-## 各ステップの詳細
+## 目標採譜フロー
+
+```text
+原曲
+├─ 分離器 ─→ Bass Stem ─→ F0/onset/voiced ─→ ノート分割・補正 ─→ Performance MIDI
+└─ beat/downbeat推定 ───────────────────────────────┐
+                                                     ↓
+                                              Score MIDI量子化
+                                                     ↓
+                                             弦・フレット割当
+                                                     ↓
+                                               GP5 / MusicXML
+```
+
+現行の`bass.mid`はBasic Pitchの生MIDIに近く、Performance MIDIとScore MIDIを分離していません。
+ベンチマークCLIと共通ノートイベントモデルを先に実装し、Web workerへの接続は比較結果の確認後に行います。
+
+## 現行各ステップの詳細
 
 ### 1. アップロード (Upload)
 
 - **エンドポイント**: `POST /jobs`
-- **入力形式**: `mp3`, `m4a`, `wav`, `ogg`, `flac` (librosa 互換)
+- **入力形式**: `mp3`, `m4a`, `wav`, `ogg`, `flac`, `opus`
 - **バリデーション**:
   - ファイルサイズ: 50MB 以下 (推奨)
   - 曲の長さ: 10分以下 (推奨)
-- **保存先**: `/data/{job_id}/{original_filename}`
+- **保存先**: `/data/{job_id}/input.{ext}`
 
 ### 2. 音源分離 (Separation - Demucs)
 
 - **モデル**: `htdemucs` (Hybrid Transformer Demucs v4)
 - **入力**: 元音源
-- **出力**: `/data/{job_id}/{stem_dir}/bass.wav`
+- **出力**: `/data/{job_id}/bass.wav`（他stemも同じジョブディレクトリ）
 - **備考**: drums, vocals, other も出力されるが、bass のみ後続処理に使用
 - **周波数**: 22kHz (フルレンジ保持)
 
 ### 3. MIDI変換 (Transcription - Basic Pitch)
 
 - **入力**: `bass.wav`
-- **出力**: `/data/{job_id}/out/bass.mid`
+- **出力**: `/data/{job_id}/bass.mid`
 - **前処理**: Basic Pitch が内部でモノラル化 + 22,050Hz リサンプリングを行うため、手動の前処理は不要
 - **推論**: CPU/GPU 両対応 (GPU 推奨)
 
@@ -71,10 +92,10 @@ sequenceDiagram
 
 - **入力**: `bass.mid`
 - **出力**:
-  - `/data/{job_id}/out/{basename}.gp5` (Guitar Pro 5)
-  - `/data/{job_id}/out/{basename}.musicxml` (MusicXML - Phase 2)
+  - `/data/{job_id}/bass.gp5` (Guitar Pro 5)
+  - `/data/{job_id}/bass.musicxml` (MusicXML、AlphaTab表示用)
 - **チューニング**: 標準4弦ベース (E1, A1, D2, G2)
-- **アルゴリズム**: (Phase 1) 単純割当 → (Phase 2) DP運指最適化
+- **アルゴリズム**: 現行は単純割当。Score MIDI実装後にDP運指最適化へ移行
 
 ### 5. 成果物配信 (Serving)
 
@@ -82,24 +103,22 @@ sequenceDiagram
 - **配信対象**:
   - `bass.wav` (分離済みベース音源)
   - `bass.mid` (MIDI)
-  - `{basename}.gp5` (Guitar Pro)
-  - `{basename}.musicxml` (MusicXML - Phase 2)
+  - `bass.gp5` (Guitar Pro)
+  - `bass.musicxml` (MusicXML、AlphaTab表示用)
 
 ## ディレクトリ構造
 
 ```
 /data/
 └── {job_id}/
-    ├── original.mp3          # 元音源
-    ├── htdemucs/             # Demucs 出力
-    │   ├── bass.wav
-    │   ├── drums.wav
-    │   ├── vocals.wav
-    │   └── other.wav
-    └── out/                  # 最終成果物
-        ├── bass.mid
-        ├── bass.gp5
-        └── bass.musicxml     # Phase 2
+    ├── input.ext             # 元音源
+    ├── bass.wav              # Demucs出力
+    ├── drums.wav
+    ├── vocals.wav
+    ├── other.wav
+    ├── bass.mid              # 現行Basic Pitch出力
+    ├── bass.gp5
+    └── bass.musicxml         # AlphaTab表示用
 ```
 
 ## ジョブのステータス管理

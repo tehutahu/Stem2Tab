@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import structlog
-from basic_pitch import inference
 
 logger = structlog.get_logger()
 
@@ -33,6 +32,8 @@ def transcribe_midi(input_wav: Path, output_dir: Path, *, job_id: str | None = N
     )
 
     try:
+        from basic_pitch import inference
+
         _, midi_data, _ = inference.predict(
             audio_path=input_wav,
             model_or_model_path=inference.ICASSP_2022_MODEL_PATH,
