@@ -1,5 +1,11 @@
 # 技術スタック調査レポート
 
+> [!NOTE]
+> 本文は2025-12-07時点の初期選定記録です。Basic Pitchを「問題なし」とした判断は、
+> 実音源での品質確認後に見直されました。現在は完成方式ではなく比較用ベースラインとして扱います。
+> 最新方針は [ROADMAP.md](ROADMAP.md) と
+> [Issue #1](https://github.com/tehutahu/Stem2Tab/issues/1) を参照してください。
+
 ## 調査日
 
 2025-12-07
@@ -9,7 +15,7 @@
 | ライブラリ | 現在の方針 | 調査結果 |
 |:---|:---|:---|
 | Spleeter | 音源分離に使用 | ⚠️ 要見直し |
-| Basic Pitch | Audio-to-MIDI に使用 | ✅ 問題なし |
+| Basic Pitch | Audio-to-MIDIの比較ベースライン | ⚠️ 実音源向け調整・比較が必要 |
 | PyGuitarPro | GP5出力に使用 | ⚠️ 制限あり |
 | AlphaTab | 譜面表示に使用 | ✅ 問題なし |
 | React + Vite | フロントエンドに使用 | ✅ 問題なし |
@@ -74,8 +80,8 @@ pip install basic-pitch
 
 ### 推奨アクション
 
-- 現在の方針で問題なし
-- **ONNX バックエンドをデフォルトで使用**（TF依存を排除）
+- **ONNX バックエンドを比較用ベースラインとして維持**（TF依存を排除）
+- 実音源でパラメータ調整と単旋律F0方式との比較を行う
 
 ---
 
@@ -99,7 +105,7 @@ pip install basic-pitch
 AlphaTab は GP7 (.gp) の読み込み・エクスポートに対応しているため：
 
 1. **バックエンド**: PyGuitarPro で **GP5 (.gp5)** を出力
-2. **フロントエンド**: AlphaTab で GP5 を読み込み → 必要なら GP7 にエクスポート
+2. **フロントエンド**: 現行はMusicXMLを表示し、GP5はダウンロード専用とする
 
 ### 推奨アクション
 
@@ -188,7 +194,7 @@ flowchart LR
     end
 
     subgraph Frontend ["フロントエンド"]
-        AlphaTab["AlphaTab (GP5/MXL表示)"]
+        AlphaTab["AlphaTab (MusicXML表示、GP5配布)"]
     end
 
     Audio --> Demucs --> BasicPitch --> Logic
@@ -203,9 +209,9 @@ flowchart LR
 | 項目 | 現在の方針 | 推奨変更 |
 |:---|:---|:---|
 | 音源分離 | Spleeter | **Demucs v4 に変更** |
-| Audio-to-MIDI | Basic Pitch | 維持 (ONNX バックエンド) |
+| Audio-to-MIDI | Basic Pitch | 比較ベースラインとして維持 |
 | Tab出力 | PyGuitarPro (GP5) | 維持 |
-| MusicXML出力 | 未定 | **music21 を採用** |
+| MusicXML出力 | music21 | AlphaTab表示用の暫定実装済み |
 | フロントエンド | AlphaTab | 維持 |
 
 ### 依存関係の競合回避

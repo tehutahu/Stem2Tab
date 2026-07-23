@@ -1,5 +1,10 @@
 # 現状まとめ（2025-12-08）
 
+> [!NOTE]
+> これはWeb MVP実装時点の履歴スナップショットです。現在の実装優先順位は
+> [ROADMAP.md](ROADMAP.md) と [Issue #1](https://github.com/tehutahu/Stem2Tab/issues/1)
+> に移行しました。
+
 ## フロントエンド
 - AlphaTab は **MusicXML のみ表示**（GP系はダウンロード専用）。GP5 を渡した際の worker エラーを回避。
 - ポーリングは SUCCESS で停止し、AlphaTab の再初期化を抑制。

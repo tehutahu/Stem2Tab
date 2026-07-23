@@ -1,6 +1,16 @@
 # テスト計画
 
-## テスト戦略
+## 現在の検証範囲
+
+- BackendはAPI/workerのモック中心と、440Hz合成音に対するBasic Pitchスモークを実装済み。
+- Frontendはアップロード画面のコンポーネントテストを実装済み。
+- 実ベース音源のノート精度、リズム精度、修正操作数は未評価。
+- Playwright E2Eと実Demucsを含むパイプライン品質テストは未実装。
+
+> [!IMPORTANT]
+> 機能テストと採譜品質評価を分けます。品質評価の実装順序は [ROADMAP.md](ROADMAP.md) を正本とします。
+
+## 目標テスト戦略
 
 ```mermaid
 flowchart TB
@@ -161,7 +171,7 @@ docker compose exec api curl -f http://localhost:8000/health
 
 200 が返れば FastAPI が起動し、Redis への依存が満たされていることを示す。
 
-## E2E テスト (Playwright)
+## E2E テスト (Playwright、未実装)
 
 ### テストシナリオ
 
@@ -198,6 +208,15 @@ test('upload and download bass tab', async ({ page }) => {
 });
 ```
 
+## 評価データと採譜品質
+
+公開データセットは、数量、ライセンス、保存方法を合意するまで一括ダウンロードしません。
+
+- 初期ベンチマークはユーザーが用意する数曲の短い区間を入力可能にする。
+- 正解MIDIがある場合はonset/offset/frame F1等を計測する。
+- 正解MIDIがない場合も、モデル・パラメータ別成果物、聴感、修正量を比較可能にする。
+- 曲数、区間長、正解作成、公開データの利用範囲は実装前に相談して決定する。
+
 ## パフォーマンステスト
 
 ### SLO (Service Level Objectives)
@@ -224,10 +243,9 @@ hyperfine \
 
 | ファイル | 説明 |
 |:---|:---|
-| `fixtures/sample_10sec.mp3` | 10秒のベースライン入り音源 (CI用) |
-| `fixtures/sample_4min.mp3` | 4分の実曲 (パフォーマンステスト用) |
-| `fixtures/expected_bass.mid` | 期待 MIDI 出力 (ゴールデンデータ) |
-| `fixtures/expected_bass.gp5` | 期待 GP5 出力 (ゴールデンデータ) |
+| `fixtures/audio/sample.wav` | 1秒の音声スモーク用フィクスチャ |
+| `fixtures/golden/basic_pitch.json` | ノートイベント形式の暫定スタブ。品質評価用正解データではない |
+| ユーザー提供音源 | 初期ベンチマーク用。リポジトリ同梱の可否は別途判断 |
 
 ### モデルキャッシュ
 
@@ -237,7 +255,7 @@ hyperfine \
 ## CI/CD 統合
 
 ```yaml
-# .github/workflows/test.yml
+# .github/workflows/ci.yml
 name: Test
 on: [push, pull_request]
 

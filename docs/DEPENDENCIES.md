@@ -89,8 +89,15 @@ RUN python -c "import demucs.pretrained; demucs.pretrained.get_model('htdemucs')
 ### Basic Pitch (ONNX) モデル
 
 - ONNX 形式のモデルを使用（TensorFlow 依存なし）。
+- 完成方式ではなく、Issue #1の評価で比較するベースラインとして扱う。
 - **インストール方針**: `pyproject.toml` / `uv.lock` には含めず、`backend/scripts/install_basic_pitch.sh` で `uv pip install --no-deps basic-pitch==0.4.0` を実行する。
 - コンテナ/ローカル共通でこのスクリプトを使用する。
+
+### 比較候補モデル
+
+pYIN、PESTO、TorchCREPE等は候補であり、現時点の必須依存ではありません。
+ベンチマークCLIとデータ契約を先に実装し、導入コスト、ライセンス、CPU/GPU要件を確認してから追加します。
+新しい本番依存関係の追加は事前確認を必要とします。
 
 ## 既知の互換性問題
 

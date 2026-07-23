@@ -12,7 +12,7 @@ http://localhost:8000/api/v1
 
 ## 認証
 
-Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加予定。
+現行APIは認証なし。認証方式と導入時期は、採譜品質の評価基盤が整った後に再検討します。
 
 ---
 
@@ -22,7 +22,7 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 |:---|:---|:---|
 | `POST` | `/jobs` | ジョブ作成（音源アップロード） |
 | `GET` | `/jobs/{job_id}` | ジョブ状態取得 |
-| `DELETE` | `/jobs/{job_id}` | ジョブキャンセル (Phase 3) |
+| `DELETE` | `/jobs/{job_id}` | ジョブキャンセル（未実装） |
 | `GET` | `/files/{job_id}` | 成果物ダウンロード |
 
 ---
@@ -37,9 +37,9 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 
 | パラメータ | 型 | 必須 | 説明 |
 |:---|:---|:---|:---|
-| `file` | File | Yes | 音源ファイル (mp3, wav, m4a, ogg, flac) |
+| `file` | File | Yes | 音源ファイル (mp3, wav, m4a, ogg, flac, opus) |
 | `strings` | int | No | ベースの弦数 (デフォルト: 4) |
-| `tuning` | string | No | チューニング (デフォルト: "standard") |
+| `tuning` | string | No | チューニング (デフォルト: "standard")。現行workerはstandardのみ |
 
 ### レスポンス
 
@@ -61,7 +61,7 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 
 ```json
 {
-  "detail": "Unsupported file format. Allowed: mp3, wav, m4a, ogg, flac"
+  "detail": "Unsupported file format. Allowed: flac, m4a, mp3, ogg, opus, wav"
 }
 ```
 
@@ -91,7 +91,8 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
   "files": [
     "bass.wav",
     "bass.mid",
-    "bass.gp5"
+    "bass.gp5",
+    "bass.musicxml"
   ],
   "error": null
 }
@@ -105,8 +106,8 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 | `STARTED` | 処理中 |
 | `SUCCESS` | 完了 |
 | `FAILURE` | エラー終了 |
-| `RETRY` | リトライ中 (Phase 3) |
-| `REVOKED` | キャンセル済み (Phase 3) |
+| `RETRY` | リトライ中 |
+| `REVOKED` | キャンセル済み |
 
 ### エラー
 
@@ -119,7 +120,7 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 ## DELETE /jobs/{job_id}
 
 > [!NOTE]
-> Phase 3 で実装予定
+> 現在は未実装
 
 ジョブをキャンセルします。
 
@@ -170,7 +171,7 @@ Phase 1 では認証なし。Phase 3 で API キーまたは JWT 認証を追加
 ## スキーマ定義
 
 ```python
-# backend/app/schemas.py
+# backend/src/api/schemas.py
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime

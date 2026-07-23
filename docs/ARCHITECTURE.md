@@ -2,7 +2,11 @@
 
 ## 概要
 
-本プロジェクトは、音源ファイル（mp3/wav等）からベースラインを抽出し、Tab譜（GP5/MusicXML）を自動生成、Webブラウザでプレビュー・編集・ダウンロードを行うためのアプリケーションです。
+本プロジェクトは、音源ファイルからベースラインを抽出し、修正可能なMIDIとTab譜を生成するアプリケーションです。
+
+> [!IMPORTANT]
+> Webアプリケーション骨格と採譜品質パイプラインを分けて扱います。
+> 現在の優先順位と目標構成は [ROADMAP.md](ROADMAP.md) を正本とします。
 
 ## モジュール構成
 
@@ -10,16 +14,16 @@
 
 | モジュール | 実行環境 | 入力 | 出力 | 依存 |
 |:---|:---|:---|:---|:---|
-| **① Tab譜生成** | Backend (Celery) | 音源ファイル | GP5, MIDI | Demucs, Basic Pitch |
-| **② Tab譜ビューア/デモ** | Frontend | GP5/MXL | - | AlphaTab |
+| **① Tab譜生成** | Backend (Celery) | 音源ファイル | MIDI, GP5, MusicXML | 現行: Demucs, Basic Pitch |
+| **② Tab譜ビューア/デモ** | Frontend | MusicXML | 表示・再生 | AlphaTab |
 | **③ Tab譜編集** | Frontend | GP5/MXL | GP5/MXL | AlphaTab (将来) |
 
 > [!IMPORTANT]
 > **モジュール分離の原則**
 >
-> - 各モジュールは疋結合であり、単独でも動作可能
-> - ②③ は GP5/MXL ファイルがあれば動作（音源なしでもOK）
-> - 既存の GP5 をアップロードしてデモモードで再生することも可能
+> - 各モジュールは疎結合とし、単独でも動作可能にする
+> - 現行ビューアはジョブが生成したMusicXMLを表示し、GP5はダウンロード専用
+> - 既存譜面の直接アップロードと編集は未実装
 
 ## ゴール
 
@@ -27,7 +31,35 @@
 - GPU を標準動作とし、CPU を推奨オプションとする
 - 成果物はローカルストレージ (`/data`) を基本とし、S3 等はオプションで併用可能にする。
 
-## システム構成図
+## 目標とする採譜パイプライン
+
+```mermaid
+flowchart LR
+    Audio[原曲] --> Sep[音源分離]
+    Audio --> Beat[beat/downbeat推定]
+    Sep --> Bass[Bass Stem]
+    Bass --> F0[F0・confidence]
+    Bass --> Onset[onset・voiced判定]
+    F0 --> Segment[ノート分割・補正]
+    Onset --> Segment
+    Segment --> Perf[Performance MIDI]
+    Perf --> Quant[拍に基づく量子化]
+    Beat --> Quant
+    Quant --> Score[Score MIDI]
+    Score --> Fret[弦・フレット割当]
+    Fret --> Export[GP5 / MusicXML]
+```
+
+各段階は共通データモデルと設定で交換可能にします。Basic Pitchは採譜器の一候補であり、
+その最終MIDIを後処理なしでTABへ渡す構成は目標アーキテクチャではありません。
+
+評価CLIはWeb APIを経由せず、同じ入力へ複数の分離器・採譜器・パラメータを適用して、
+中間イベント、Performance MIDI、Score MIDI、評価値を保存できる独立エントリーポイントとします。
+
+評価データの規模と公開データセットの取得方針は未決定であり、初期実装では手元音源を
+引数で渡せることを優先します。
+
+## 現行Webシステム構成図
 
 ```mermaid
 graph TD

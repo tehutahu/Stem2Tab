@@ -16,8 +16,8 @@ Stem2Tab/
 │   ├── pyproject.toml         # uv 用
 │   ├── src/
 │   │   ├── api/               # FastAPI ルート
-│   │   ├── pipelines/         # Demucs, Basic Pitch の呼び出し
-│   │   ├── logic/             # Tab割当アルゴリズム
+│   │   ├── pipelines/         # 現行の分離、採譜、Tab出力
+│   │   ├── worker/            # Celeryタスク
 │   │   └── core/              # 設定、ログ
 │   └── tests/
 ├── frontend/                  # React フロントエンド
@@ -30,7 +30,7 @@ Stem2Tab/
 ├── docs/                      # ドキュメント
 ├── data/                      # 成果物保存先 (gitignore)
 └── .agent/                    # AIエージェント用ルール
-    └── workflows/
+    └── rules/
 ```
 
 > [!NOTE]
@@ -49,7 +49,7 @@ Stem2Tab/
 | Web Framework | FastAPI | Pydantic v2 |
 | タスクキュー | Celery + Redis | |
 | 音源分離 | **Demucs** | PyTorch バックエンド |
-| MIDI変換 | Basic Pitch (ONNX) | TensorFlow 依存なし（**pyproject/lock に入れず scripts/install_basic_pitch.sh で --no-deps 導入**） |
+| 採譜ベースライン | Basic Pitch (ONNX) | TensorFlow 依存なし。Issue #1で他方式と比較 |
 | Tab生成 | PyGuitarPro | GP3-5 のみ対応 |
 | MusicXML | music21 | |
 

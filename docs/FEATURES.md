@@ -1,5 +1,11 @@
 # 機能仕様
 
+> [!IMPORTANT]
+> 現在の優先順位は [ROADMAP.md](ROADMAP.md) と
+> [Issue #1](https://github.com/tehutahu/Stem2Tab/issues/1) を正本とします。
+> 以下はWebアプリケーション骨格の状況であり、ファイル生成済みであることを
+> 採譜品質の完成とはみなしません。
+
 ## アプリケーション構成
 
 本アプリケーションは以下の **3つの独立したモジュール** で構成されます。
@@ -102,14 +108,20 @@ flowchart LR
 - [x] API スタブ (`/api/v1/jobs` POST/GET) と Celery worker スタブを実装し、ジョブID返却とステータス確認が可能
 - [x] Demucs モデルはオンデマンドDLし、`/data/cache/demucs` にキャッシュ (compose でボリューム共有)
 - [x] GPU/CPU 両対応の docker-compose ひな型を用意し、バックエンドコードとテストをマウントして即時反映
-- [x] フロントエンドはアップロード + ポーリングのモック UI (AlphaTab プレースホルダ) を提供
+- [x] フロントエンドはアップロード、ポーリング、MusicXMLのAlphaTab表示、再生UIを提供
 - [x] Audio→MIDI (Basic Pitch ONNX) を実装し、ONNX GPU ランタイムで動作確認済み（`onnxruntime-gpu`、合成トーンでMIDI生成テスト）。
+- [x] GP5とMusicXMLを生成（GP5はダウンロード専用、MusicXMLをAlphaTab表示に使用）
+- [ ] 実音源に対する採譜品質の評価基盤
+- [ ] Performance MIDIとScore MIDIの分離
 
 ---
 
-## Phase 別ロードマップ
+## 旧Web機能ロードマップ（履歴）
 
-### Phase 1: MVP
+この節はWebアプリケーション骨格を作った際の履歴です。今後の実装順序には使用しません。
+新しい順序は評価基盤→採譜ベースライン→単旋律処理→リズム→TAB/編集UIです。
+
+### 旧Phase 1: Web MVP
 
 **① Tab譜生成モジュール**
 - [x] 音源アップロード API (`POST /jobs`)
@@ -122,18 +134,18 @@ flowchart LR
 - [x] ローカルストレージ (`/data`)
 
 **② Tab譜ビューア/デモモジュール**
-- [ ] AlphaTab による GP5 プレビュー
-- [ ] **演奏デモモード** (詳細: [DEMO_MODE.md](DEMO_MODE.md))
-    - [ ] Tab譜同期再生 (カーソル追従)
-    - [ ] フレットボード表示 (ノートハイライト)
-    - [ ] コントロールバー (再生/停止)
+- [x] AlphaTab によるMusicXMLプレビュー（GP5直接表示は停止中）
+- [x] **演奏デモモード** (詳細: [DEMO_MODE.md](DEMO_MODE.md))
+    - [x] Tab譜同期再生 (カーソル追従)
+    - [x] フレットボード表示 (ノートハイライト)
+    - [x] コントロールバー (再生/停止)
 
 ---
 
-### Phase 2: 機能拡張
+### 旧Phase 2: 機能拡張
 
 **① Tab譜生成モジュール**
-- [ ] MusicXML 出力の追加 (music21)
+- [x] MusicXML 出力の追加 (music21、暫定実装)
 - [ ] Tab 割当アルゴリズムの高度化 (DP運指最適化、和音対応)
 - [ ] 5弦/6弦ベース、ドロップチューニングのサポート
 
@@ -149,7 +161,7 @@ flowchart LR
 
 ---
 
-### Phase 3: 運用強化
+### 旧Phase 3: 運用強化
 
 - [ ] ジョブキャンセル API
 - [ ] リトライポリシーの実装
