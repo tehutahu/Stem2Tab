@@ -6,6 +6,8 @@
 - Frontendはアップロード画面のコンポーネントテストを実装済み。
 - 実ベース音源のノート精度、リズム精度、修正操作数は未評価。
 - Playwright E2Eと実Demucsを含むパイプライン品質テストは未実装。
+- MIDI→GP5/MusicXML変換は、テスト内で生成する小さなMIDIを再読み込みし、
+  実音、音数、onset、duration、休符、小節境界とタイを検証する。
 
 > [!IMPORTANT]
 > 機能テストと採譜品質評価を分けます。品質評価の実装順序は [ROADMAP.md](ROADMAP.md) を正本とします。
@@ -74,6 +76,23 @@ def test_high_note_g3():
 ```
 
 ## 統合テスト
+
+### MIDI→譜面のCPU回帰テスト
+
+```bash
+cd backend
+uv run --no-sync pytest tests/unit/test_tab_roundtrip.py -q
+```
+
+既存の仮想環境に依存が導入済みなら `--no-sync` で再同期を避けられます。
+新規環境では上記の依存導入手順を先に実施してください。
+4/5/6弦の開放弦実音（4弦E1=MIDI 28、5/6弦B0=MIDI 23）を使い、
+GP5は `Note.realValue` とtick、MusicXMLはタイ結合後の音高・拍時刻を比較します。
+先頭・途中の休符、8分・16分・32分音符、複数小節、小節をまたぐ持続音を含みます。
+重複音・和音・音域外・非整数テンポのMusicXMLフォールバック、テンポ変更・3/4の
+明示的エラー、MusicXML書込エラーの伝播も検証します。
+音源、GPU、推論モデル、Redis、Celeryサーバーは不要です。
+これは記譜変換の正しさを検証する合成fixtureであり、実曲の採譜精度指標ではありません。
 
 ### パイプライン統合
 
