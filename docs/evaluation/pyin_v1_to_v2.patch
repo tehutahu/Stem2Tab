@@ -1,0 +1,49 @@
+--- a/backend/src/evaluation/pyin.py
++++ b/backend/src/evaluation/pyin.py
+@@ -18,7 +18,6 @@
+ _HOP = 256
+ _FRAME = 4096
+ _ENERGY_FLOOR = 1e-4
+-_ENERGY_RATIO = .03
+
+
+ def _extract_frames(audio: np.ndarray, sr: int) -> tuple[np.ndarray, ...]:
+@@ -42,7 +41,9 @@
+     rms = librosa.feature.rms(y=audio, frame_length=window, hop_length=_HOP,
+                               center=True, pad_mode="constant")[0]
+     energy = np.interp(times, np.arange(len(rms)) * _HOP / sr, rms)
+-    active = energy > max(_ENERGY_FLOOR, _ENERGY_RATIO * float(np.max(energy, initial=0)))
++    # A global peak-relative gate can erase quiet notes following a louder note.
++    # Keep only the fixed near-silence floor; voicing is still required separately.
++    active = energy > _ENERGY_FLOOR
+     strength = librosa.onset.onset_strength(y=audio, sr=sr, hop_length=_HOP,
+                                           n_fft=2048, center=True)
+     onsets = librosa.onset.onset_detect(
+@@ -127,7 +128,7 @@
+             "n_thresholds": 100, "beta_parameters": [2, 18], "boltzmann_parameter": 2.,
+             "resolution": .1, "max_transition_rate": 35.92, "switch_prob": .01,
+             "no_trough_prob": .01, "fill_na": "NaN", "energy_floor": _ENERGY_FLOOR,
+-            "energy_ratio": _ENERGY_RATIO, "energy_window_samples": 2 * round(.005 * _SR) + 1,
++            "activity_policy": "absolute_rms_floor", "energy_window_samples": 2 * round(.005 * _SR) + 1,
+             "onset_n_fft": 2048, "onset_delta": .07,
+             "onset_peak_pick": {"pre_max": 2, "post_max": 1, "pre_avg": 8, "post_avg": 9, "wait": 2},
+             "assembly": settings.model_dump(),
+--- a/backend/src/evaluation/note_assembly.py
++++ b/backend/src/evaluation/note_assembly.py
+@@ -52,7 +52,7 @@
+     pitch excursions are replaced left-to-right only when both neighbors agree
+     and no independent onset touches that frame. Short remaining runs are dropped.
+     Onsets split at their supplied times only when both pieces retain the minimum
+-    number of frame starts and the previous note start is sufficiently far away.
++    number of frame starts and each piece meets the onset separation duration.
+     """
+     frequency = _one_dimensional(f0, "f0")
+     voice_mask = _one_dimensional(voiced, "voiced", boolean=True)
+@@ -104,6 +104,7 @@
+             for onset in onsets[(onsets > start) & (onsets < end)]:
+                 split_index = int(np.searchsorted(frame_times, onset, side="left"))
+                 if (onset - start + 1e-12 >= config.min_onset_separation_seconds
++                        and end - onset + 1e-12 >= config.min_onset_separation_seconds
+                         and split_index - piece_index >= config.min_pitch_run_frames
+                         and end_index - split_index >= config.min_pitch_run_frames):
+                     notes.append(NoteEvent(start=start, end=float(onset), midi=int(pitch), velocity=80 / 127))
