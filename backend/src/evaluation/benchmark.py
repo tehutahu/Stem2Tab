@@ -447,6 +447,8 @@ def _write_manifest(
         "demucs",
         "pydantic",
         "numpy",
+        "librosa",
+        "onnxruntime",
     )
     payload = {
         "schema_version": "1.0",

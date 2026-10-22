@@ -305,6 +305,36 @@ uv run pytest \
 
 ## パフォーマンステスト
 
+### CPU pYIN・音符組立の合成回帰
+
+追加モデルや依存なしで `pyin_raw` と `pyin` を評価できます。
+既定の本番経路・評価CLIの既定transcriberはBasic Pitchのままです。
+
+```bash
+cd backend
+uv run pytest tests/unit/test_evaluation_*.py -q
+CUDA_VISIBLE_DEVICES='' BASIC_PITCH_MODEL_SERIALIZATION=onnx \
+  uv run python -m src.evaluation.synthetic --suite development \
+  --output-dir benchmark_results/pyin-development
+```
+
+`--suite validation_a` は再ピッキング・短音・短休符・弱基音・legato・混在音量・無音、
+`--suite validation_b` は別の音高・音長・強弱・倍音・位相等を使います。
+各出力先は新規または空である必要があります。`--generate-only` では推論せず入力・計画を保存します。
+`--transcribers` を省略すると `basic_pitch,pyin_raw,pyin` を比較します。
+音声とreference MIDIは実行時に生成し、大きなWAV等はリポジトリへ追加しません。
+空referenceは指標算出に使わず、無音は推定音数を負例として記録します。
+
+主な成果物は `plan.json`、`summary.csv/json`、`note_diagnostics.json`、各条件のbenchmark成果物です。
+planに生成条件・音符組立設定・全suite定義・実行source hashを保存します。
+同音反復の正否は1対1のonset/onset+offset対応で判断します。
+時間重複による候補診断だけでは、1音が複数の参照音を覆う融合を検出できません。
+
+2026-10-22の反復ではdevelopmentと検証Aを開発に使い、変更を固定後に検証Bを初めて評価しました。
+現在はBも評価済みの回帰条件です。今後の最適化では新たな未使用条件を確保します。
+変更前後の改善・退行と再現手順は [評価レポート](evaluation/PYIN_ASSEMBLY.md) を参照してください。
+信頼できる実曲reference MIDIは引き続きなく、合成fixtureの結果を実曲精度へ一般化しません。
+
 ### SLO (Service Level Objectives)
 
 | 曲の長さ | CPU | GPU |

@@ -12,6 +12,7 @@ from src.evaluation.io import read_midi
 from src.evaluation.models import NoteEventSet, SourceValue
 from src.pipelines.separation import separate_stems
 from src.pipelines.transcription import transcribe_midi
+from src.evaluation.pyin import PyinTranscriber
 
 
 @dataclass(frozen=True)
@@ -171,6 +172,8 @@ SEPARATOR_ADAPTERS: dict[str, SeparatorAdapter] = {
 }
 TRANSCRIBER_ADAPTERS: dict[str, TranscriberAdapter] = {
     BasicPitchTranscriber.name: BasicPitchTranscriber(),
+    "pyin_raw": PyinTranscriber(assembled=False),
+    "pyin": PyinTranscriber(),
 }
 
 
