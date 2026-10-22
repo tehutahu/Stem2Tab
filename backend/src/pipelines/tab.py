@@ -1,32 +1,65 @@
-"""Very simple MIDI to GP5 converter for bass tracks."""
+"""Export a small, explicitly bounded score-MIDI bass notation baseline."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import structlog
 
 logger = structlog.get_logger()
 
-
-# MIDI numbers for standard bass tunings (4/5/6 strings)
+# Sounding MIDI pitches, low to high (bass notation is conventionally transposed).
 STANDARD_TUNINGS = {
-    4: [40, 45, 50, 55],  # E1 A1 D2 G2
-    5: [35, 40, 45, 50, 55],  # B0 E1 A1 D2 G2
-    6: [28, 33, 38, 43, 47, 52],  # E0 A0 D1 G1 B1 E2 (approx)
+    4: [28, 33, 38, 43],  # E1 A1 D2 G2
+    5: [23, 28, 33, 38, 43],  # B0 E1 A1 D2 G2
+    6: [23, 28, 33, 38, 43, 48],  # B0 E1 A1 D2 G2 C3
 }
+_GRID = 48  # subdivisions per quarter note; includes straight and triplet values
+_BAR = 4 * _GRID
+
+
+@dataclass(frozen=True)
+class _ScoreNote:
+    start: int
+    end: int
+    pitch: int
+    velocity: int
 
 
 def _pick_string_and_fret(midi_pitch: int, strings: int) -> tuple[int, int] | None:
-    """Naively pick a string/fret for a given MIDI pitch."""
-    tuning = STANDARD_TUNINGS.get(strings, STANDARD_TUNINGS[4])
-    # Strings are numbered from 1 (highest) in PyGuitarPro, so reverse for bass perspective.
-    for string_idx, open_pitch in enumerate(reversed(tuning), start=1):
+    """Pick the highest available string within the supported 24-fret range."""
+    if strings not in STANDARD_TUNINGS:
+        raise ValueError(f"Unsupported bass string count: {strings}")
+    for string_idx, open_pitch in enumerate(reversed(STANDARD_TUNINGS[strings]), start=1):
         fret = midi_pitch - open_pitch
         if 0 <= fret <= 24:
             return string_idx, fret
     return None
+
+
+def _load_score(midi_path: Path) -> tuple[float, list[_ScoreNote]]:
+    """Read fixed-tempo 4/4 MIDI and round absolute boundaries to a 1/48 beat grid."""
+    import pretty_midi
+
+    midi = pretty_midi.PrettyMIDI(str(midi_path))
+    _, tempi = midi.get_tempo_changes()
+    bpm = float(tempi[0])
+    if any(abs(float(t) - bpm) > 1e-6 for t in tempi):
+        raise ValueError("Tempo changes require a score-MIDI tempo-map exporter")
+    if any((t.numerator, t.denominator) != (4, 4) for t in midi.time_signature_changes):
+        raise ValueError("Only 4/4 score MIDI is currently supported")
+    notes = []
+    for inst in midi.instruments:
+        if inst.is_drum:
+            continue
+        for n in inst.notes:
+            start = round(midi.time_to_tick(n.start) * _GRID / midi.resolution)
+            end = round(midi.time_to_tick(n.end) * _GRID / midi.resolution)
+            if end <= start:
+                raise ValueError("MIDI note is shorter than the supported 1/48 beat grid")
+            notes.append(_ScoreNote(start, end, n.pitch, n.velocity))
+    return bpm, sorted(notes, key=lambda n: (n.start, n.end, n.pitch))
 
 
 def midi_to_gp5(
@@ -36,93 +69,95 @@ def midi_to_gp5(
     strings: int = 4,
     job_id: str | None = None,
 ) -> Path:
-    """Convert a MIDI file to a minimal GP5 bass tab.
+    """Export fixed-tempo 4/4 score MIDI with rests, measures and tied durations.
 
-    On failure, falls back to emitting a MusicXML file so that AlphaTab can still import the result.
+    Absolute note boundaries are rounded to 1/48 of a quarter note. This is a
+    notation baseline, not performance-to-score rhythm inference. Unsupported
+    GP5 polyphony, pitches or fractional tempos fall back to MusicXML with a
+    warning. Invalid input and MusicXML failures propagate to the caller.
     """
     if not midi_path.exists():
         raise FileNotFoundError(f"MIDI not found: {midi_path}")
-
+    if strings not in STANDARD_TUNINGS:
+        raise ValueError(f"Unsupported bass string count: {strings}")
+    bpm, notes = _load_score(midi_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
     logger.info("tab_generation_start", job_id=job_id, midi=str(midi_path), gp5=str(output_path))
-
+    xml_path = output_path.with_suffix(".musicxml")
+    # Always produce the companion XML; never return a path that was not written.
+    _write_musicxml_score(notes, xml_path, bpm, job_id)
     try:
-        import guitarpro  # type: ignore
-        import pretty_midi  # type: ignore
-        midi = pretty_midi.PrettyMIDI(str(midi_path))
-        tempo = int(midi.estimate_tempo() or 120)
-        song = guitarpro.models.Song(tempo=tempo, tempoName="Bass")
-        time_signature = guitarpro.models.TimeSignature(
-            numerator=4, denominator=guitarpro.models.Duration(value=4)
-        )
-        header = guitarpro.models.MeasureHeader(number=1, start=0, timeSignature=time_signature)
-        song.measureHeaders.append(header)
-
-        channel = guitarpro.models.MidiChannel(instrument=33)  # Fingered Bass
-        track = guitarpro.models.Track(song, name="Bass", channel=channel)
-        tuning = STANDARD_TUNINGS.get(strings, STANDARD_TUNINGS[4])
-        track.strings = [
-            guitarpro.models.GuitarString(number=idx + 1, value=pitch)
-            for idx, pitch in enumerate(reversed(tuning))
-        ]
-        song.tracks.append(track)
-
-        measure = guitarpro.models.Measure(track, header, clef=guitarpro.models.MeasureClef.bass)
-        track.measures.append(measure)
-
-        voice = measure.voices[0]
-        default_duration = guitarpro.models.Duration(value=4)  # quarter note
-
-        notes = sorted((n.start, n.end, n.pitch) for inst in midi.instruments for n in inst.notes)
-        if not notes:
-            rest = guitarpro.models.Beat(
-                voice,
-                status=guitarpro.models.BeatStatus.rest,
-                duration=default_duration,
-            )
-            voice.beats.append(rest)
-        else:
-            for _, _, pitch in notes:
-                mapping = _pick_string_and_fret(pitch, strings)
-                if mapping is None:
-                    continue
-                string_idx, fret = mapping
-                beat = guitarpro.models.Beat(
-                    voice,
-                    status=guitarpro.models.BeatStatus.normal,
-                    duration=default_duration,
-                )
-                gp_note = guitarpro.models.Note(
-                    beat,
-                    value=fret,
-                    string=string_idx,
-                    velocity=80,
-                    type=guitarpro.models.NoteType.normal,
-                )
-                beat.notes.append(gp_note)
-                voice.beats.append(beat)
-
-            if not voice.beats:
-                rest = guitarpro.models.Beat(
-                    voice,
-                    status=guitarpro.models.BeatStatus.rest,
-                    duration=default_duration,
-                )
-                voice.beats.append(rest)
-
-        guitarpro.write(song, output_path)
-        logger.info("tab_generation_complete", job_id=job_id, gp5=str(output_path))
-
-        _write_simple_musicxml(midi_path, output_path.with_suffix(".musicxml"), tempo=tempo, job_id=job_id)
-
-        return output_path
-    except Exception as exc:  # pragma: no cover - defensive fallback
+        _write_gp5_score(notes, output_path, bpm, strings)
+    except (ImportError, ValueError) as exc:
         logger.warning("tab_generation_fallback", job_id=job_id, error=str(exc))
+        return xml_path
+    logger.info("tab_generation_complete", job_id=job_id, gp5=str(output_path))
+    return output_path
 
-        fallback_path = output_path.with_suffix(".musicxml")
-        _write_simple_musicxml(midi_path, fallback_path, tempo=None, job_id=job_id)
-        return fallback_path
+
+def _write_gp5_score(notes: list[_ScoreNote], output_path: Path, bpm: float, strings: int) -> None:
+    import guitarpro
+
+    models = guitarpro.models
+    if abs(bpm - round(bpm)) > 1e-3:
+        raise ValueError("GP5 requires an integer tempo; preserving fractional tempo in MusicXML")
+    previous_end = 0
+    for n in notes:
+        if n.start < previous_end:
+            raise ValueError("Overlapping MIDI notes require polyphonic notation; preserving in MusicXML")
+        if _pick_string_and_fret(n.pitch, strings) is None:
+            raise ValueError(f"Pitch {n.pitch} is outside the {strings}-string 24-fret range")
+        previous_end = n.end
+    song = models.Song(tempo=round(bpm), tempoName="Bass")
+    song.measureHeaders.clear()
+    song.tracks.clear()
+    track = models.Track(song, name="Bass", channel=models.MidiChannel(instrument=33))
+    track.measures.clear()
+    track.strings = [models.GuitarString(number=i, value=p) for i, p in enumerate(
+        reversed(STANDARD_TUNINGS[strings]), start=1)]
+    song.tracks.append(track)
+    total = max(_BAR, ((max((n.end for n in notes), default=0) + _BAR - 1) // _BAR) * _BAR)
+    for index in range(total // _BAR):
+        header = models.MeasureHeader(number=index + 1, start=960 + index * 3840,
+            timeSignature=models.TimeSignature(numerator=4, denominator=models.Duration(value=4)))
+        song.measureHeaders.append(header)
+        track.measures.append(models.Measure(track, header, clef=models.MeasureClef.bass))
+
+    # Each candidate is an exact integer number of grid units, including 128th triplets.
+    durations = []
+    for value in (1, 2, 4, 8, 16, 32, 64):
+        durations.append((192 // value, value, False))
+    for value in (1, 2, 4, 8, 16, 32, 64, 128):
+        durations.append((128 // value, value, True))
+    durations.sort(reverse=True)
+
+    def emit(start: int, end: int, n: _ScoreNote | None) -> None:
+        first = True
+        while start < end:
+            measure = track.measures[start // _BAR]
+            voice = measure.voices[0]
+            remaining = min(end - start, _BAR - start % _BAR)
+            units, value, triplet = next(d for d in durations if d[0] <= remaining)
+            duration = models.Duration(value=value)
+            if triplet:
+                duration.tuplet = models.Tuplet(enters=3, times=2)
+            beat = models.Beat(voice, start=960 + start * 20, duration=duration,
+                status=models.BeatStatus.rest if n is None else models.BeatStatus.normal)
+            if n is not None:
+                string_idx, fret = _pick_string_and_fret(n.pitch, strings)
+                beat.notes.append(models.Note(beat, value=fret, string=string_idx, velocity=n.velocity,
+                    type=models.NoteType.normal if first else models.NoteType.tie))
+            voice.beats.append(beat)
+            start += units
+            first = False
+
+    cursor = 0
+    for n in notes:
+        emit(cursor, n.start, None)
+        emit(n.start, n.end, n)
+        cursor = n.end
+    emit(cursor, total, None)
+    guitarpro.write(song, str(output_path))
 
 
 def _write_simple_musicxml(
@@ -132,80 +167,53 @@ def _write_simple_musicxml(
     tempo: int | None = None,
     job_id: str | None = None,
 ) -> None:
-    """Emit a single-voice MusicXML that AlphaTab can safely render while keeping timing."""
-    try:
-        import pretty_midi  # type: ignore
-        from music21 import instrument, meter, note, stream, tempo as m21tempo  # type: ignore
-    except Exception as exc:  # pragma: no cover - dependency guard
-        logger.warning("musicxml_dependencies_missing", job_id=job_id, error=str(exc))
-        return
+    """Export MIDI timing without minimum-duration or maximum-duration clamps.
 
-    if not midi_path.exists():
-        logger.warning("musicxml_midi_missing", job_id=job_id, midi=str(midi_path))
-        return
+    The legacy tempo argument is accepted for compatibility; MIDI tempo metadata
+    remains authoritative so a caller cannot accidentally rescale note timing.
+    """
+    bpm, notes = _load_score(midi_path)
+    _write_musicxml_score(notes, output_path, bpm, job_id)
 
-    midi = pretty_midi.PrettyMIDI(str(midi_path))
-    notes_raw: list[Tuple[float, float, int]] = []
-    for inst in midi.instruments:
-        for n in inst.notes:
-            if n.end > n.start:
-                notes_raw.append((n.start, n.end, n.pitch))
-    notes_raw.sort(key=lambda x: x[0])
 
-    if tempo is not None and tempo > 0:
-        bpm = tempo
-    else:
-        tempo_times, tempi = midi.get_tempo_changes()
-        bpm = float(tempi[0]) if len(tempi) > 0 and tempi[0] > 0 else float(midi.estimate_tempo() or 120)
-    if bpm <= 0:
-        bpm = 120.0
+def _write_musicxml_score(
+    notes: list[_ScoreNote], output_path: Path, bpm: float, job_id: str | None,
+) -> None:
+    from fractions import Fraction
+    from music21 import clef, instrument, meter, note, stream, tempo
 
     score = stream.Score()
     part = stream.Part()
-    part.insert(0, m21tempo.MetronomeMark(number=bpm))
+    part.insert(0, tempo.MetronomeMark(number=bpm))
     part.insert(0, meter.TimeSignature("4/4"))
     part.insert(0, instrument.ElectricBass())
-
-    if not notes_raw:
-        part.append(note.Rest(quarterLength=4.0))
-    else:
-        seconds_to_quarter = bpm / 60.0
-        current_time = 0.0
-
-        for start, end, pitch in notes_raw:
-            # fill rest if there is a gap
-            if start > current_time:
-                rest_q = max(0.25, (start - current_time) * seconds_to_quarter)
-                rest_q = _quantize_quarter(rest_q)
-                part.append(note.Rest(quarterLength=rest_q))
-                current_time = start
-
-            duration_q = max(0.25, (end - start) * seconds_to_quarter)
-            # clamp extremely long durations to avoid rendering issues
-            duration_q = min(duration_q, 8.0)
-            duration_q = _quantize_quarter(duration_q)
-
-            m_note = note.Note()
-            m_note.pitch.midi = pitch
-            m_note.quarterLength = duration_q
-            part.append(m_note)
-
-            current_time = start + (duration_q / seconds_to_quarter)
-
+    part.insert(0, clef.BassClef())
+    total = max(_BAR, ((max((n.end for n in notes), default=0) + _BAR - 1) // _BAR) * _BAR)
+    # XML requires explicit voices for overlapping events; otherwise its writer
+    # serializes them sequentially despite the offsets in the source stream.
+    voices: list[tuple[stream.Voice, int]] = []
+    for n in notes:
+        index = next((i for i, (_, end) in enumerate(voices) if end <= n.start), len(voices))
+        if index == len(voices):
+            voices.append((stream.Voice(id=index + 1), 0))
+        voice, _ = voices[index]
+        event = note.Note(n.pitch, quarterLength=Fraction(n.end - n.start, _GRID))
+        event.volume.velocity = n.velocity
+        voice.insert(Fraction(n.start, _GRID), event)
+        voices[index] = (voice, n.end)
+    if not voices:
+        voices.append((stream.Voice(id=1), 0))
+    for voice, _ in voices:
+        voice.makeRests(refStreamOrTimeRange=(0, Fraction(total, _GRID)), fillGaps=True, inPlace=True)
+        part.insert(0, voice)
     part.makeMeasures(inPlace=True)
     part.makeNotation(inPlace=True)
     score.append(part)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     score.write("musicxml", str(output_path))
-    logger.info("musicxml_simple_written", job_id=job_id, musicxml=str(output_path), notes=len(notes_raw), bpm=bpm)
+    logger.info("musicxml_simple_written", job_id=job_id, musicxml=str(output_path), notes=len(notes), bpm=bpm)
 
 
 def _quantize_quarter(value: float) -> float:
-    """Quantize quarterLength to standard divisions (1/48 step) to keep triplets and finer timing expressible."""
-    step = 1 / 48  # ~32nd-triplet resolution
-    quantized = round(value / step) * step
-    if quantized <= 0:
-        quantized = step
-    return quantized
-
-
+    """Round a positive duration to the shared 1/48-quarter-note grid."""
+    return max(1, round(value * _GRID)) / _GRID
