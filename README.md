@@ -264,3 +264,8 @@ MIT License
 - [AlphaTab Documentation](https://alphatab.net/docs/introduction/)
 - [Docker GPU Support](https://docs.docker.com/compose/how-tos/gpu-support/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+### 任意の単音ベース倍音フィルタ評価
+
+評価CLIの `--transcribers basic_pitch_mono` は、生Basic Pitch結果を保存して包含された倍音候補だけを抑制します。
+既定backendは変更しません。複音・偽subharmonicによる欠落リスク、実録音と合成回帰の結果は[評価記録](docs/evaluation/IDMT_MONO_HARMONICS.md)を参照してください。

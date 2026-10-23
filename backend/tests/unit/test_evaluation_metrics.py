@@ -40,6 +40,7 @@ def test_onset_outside_tolerance_is_extra_and_missed() -> None:
     assert metrics.extra_note_count == 1
     assert metrics.missed_note_count == 1
     assert metrics.duration_mae_ms is None
+    assert metrics.average_overlap_ratio == 0.0
 
 
 def test_offset_mismatch_preserves_onset_score() -> None:
@@ -87,6 +88,7 @@ def test_empty_estimate_returns_zero_scores_and_all_notes_missed() -> None:
     assert metrics.extra_note_count == 0
     assert metrics.missed_note_count == 1
     assert metrics.duration_mae_ms is None
+    assert metrics.average_overlap_ratio == 0.0
 
 
 def test_empty_reference_is_rejected() -> None:
@@ -97,3 +99,93 @@ def test_empty_reference_is_rejected() -> None:
             config=CONFIG,
             runtime_seconds=0.0,
         )
+
+
+@pytest.mark.parametrize(
+    "reference_interval,estimated_interval,offset_f1",
+    [
+        pytest.param((0.1, 0.2), (0.06, 0.08), 0.0, id="early-disjoint"),
+        pytest.param((0.1, 0.12), (0.14, 0.16), 1.0, id="late-disjoint"),
+        pytest.param((0.1, 0.2), (0.06, 0.1), 0.0, id="early-touching"),
+        pytest.param((0.1, 0.12), (0.12, 0.14), 1.0, id="late-touching"),
+    ],
+)
+def test_onset_matches_with_disjoint_or_touching_intervals_have_zero_overlap(
+    reference_interval: tuple[float, float],
+    estimated_interval: tuple[float, float],
+    offset_f1: float,
+) -> None:
+    reference = _events(NoteEvent(start=reference_interval[0], end=reference_interval[1], midi=28))
+    estimated = _events(NoteEvent(start=estimated_interval[0], end=estimated_interval[1], midi=28))
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == 0.0
+    # Matching remains defined by onset/pitch tolerances, even without overlap.
+    assert metrics.onset_precision == pytest.approx(1.0)
+    assert metrics.onset_recall == pytest.approx(1.0)
+    assert metrics.onset_f1 == pytest.approx(1.0)
+    assert metrics.onset_offset_precision == pytest.approx(offset_f1)
+    assert metrics.onset_offset_recall == pytest.approx(offset_f1)
+    assert metrics.onset_offset_f1 == pytest.approx(offset_f1)
+    assert metrics.extra_note_count == 0
+    assert metrics.missed_note_count == 0
+    assert metrics.frame_precision == 0.0
+    assert metrics.frame_recall == 0.0
+    assert metrics.frame_f1 == 0.0
+    expected_error = abs(
+        (estimated_interval[1] - estimated_interval[0])
+        - (reference_interval[1] - reference_interval[0])
+    ) * 1000
+    assert metrics.duration_mae_ms == pytest.approx(expected_error)
+
+
+def test_partial_overlap_preserves_intersection_over_union() -> None:
+    reference = _events(NoteEvent(start=0.1, end=0.2, midi=28))
+    estimated = _events(NoteEvent(start=0.08, end=0.15, midi=28))
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == pytest.approx(0.05 / 0.12)
+    assert metrics.onset_f1 == pytest.approx(1.0)
+    assert metrics.onset_offset_f1 == pytest.approx(1.0)
+    assert metrics.duration_mae_ms == pytest.approx(30.0)
+
+
+def test_mixed_disjoint_and_exact_matches_clamp_each_pair_before_averaging() -> None:
+    reference = _events(
+        NoteEvent(start=0.1, end=0.2, midi=28),
+        NoteEvent(start=1.0, end=1.2, midi=33),
+    )
+    estimated = _events(
+        NoteEvent(start=0.06, end=0.08, midi=28),
+        NoteEvent(start=1.0, end=1.2, midi=33),
+    )
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    # mean(max(0, pair_iou)) = (0 + 1) / 2, not max(0, mean(pair_iou)).
+    assert metrics.average_overlap_ratio == pytest.approx(0.5)
+    assert metrics.onset_precision == pytest.approx(1.0)
+    assert metrics.onset_recall == pytest.approx(1.0)
+    assert metrics.onset_f1 == pytest.approx(1.0)
+    assert metrics.onset_offset_f1 == pytest.approx(0.5)
+    assert metrics.extra_note_count == 0
+    assert metrics.missed_note_count == 0
+    assert metrics.duration_mae_ms == pytest.approx(40.0)
+
+
+def test_interval_overlap_without_a_pitch_match_has_zero_average_overlap() -> None:
+    reference = _events(NoteEvent(start=0.1, end=0.2, midi=28))
+    estimated = _events(NoteEvent(start=0.1, end=0.2, midi=33))
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == 0.0
+    assert metrics.onset_precision == 0.0
+    assert metrics.onset_recall == 0.0
+    assert metrics.onset_f1 == 0.0
+    assert metrics.onset_offset_f1 == 0.0
+    assert metrics.extra_note_count == 1
+    assert metrics.missed_note_count == 1
+    assert metrics.duration_mae_ms is None

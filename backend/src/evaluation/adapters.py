@@ -166,12 +166,39 @@ class BasicPitchTranscriber:
         )
 
 
+class BasicPitchMonoTranscriber(BasicPitchTranscriber):
+    """Optional mono-bass partial suppression, preserving the raw model result."""
+
+    name = "basic_pitch_mono"
+
+    def run(self, audio_path: Path, output_dir: Path, *, config: AdapterConfig) -> TranscriptionResult:
+        """Apply a reference-free filter without changing the default backend."""
+        import json
+        from src.evaluation.harmonic_suppression import HarmonicSuppressionConfig, suppress_contained_harmonics
+        from src.evaluation.io import write_midi, write_note_events_json, write_note_events_csv
+
+        raw = super().run(audio_path, output_dir, config=config)
+        settings = HarmonicSuppressionConfig()
+        filtered, decisions = suppress_contained_harmonics(raw.events, config=settings)
+        write_note_events_json(raw.events, output_dir / "raw_events.json")
+        write_note_events_csv(raw.events, output_dir / "raw_events.csv")
+        selected = output_dir / "filtered.mid"
+        write_midi(filtered, selected)
+        decisions_path = output_dir / "harmonic_suppression.json"
+        decisions_path.write_text(json.dumps({"parameters": settings.model_dump(), "rejected": decisions}, indent=2) + "\n", encoding="utf-8")
+        return TranscriptionResult(raw_midi_path=raw.raw_midi_path, events=filtered,
+            metadata={**raw.metadata, "processing": "contained_harmonic_suppression", "uses_reference": False,
+                      "parameters": settings.model_dump_json(), "selected_midi_path": str(selected),
+                      "decisions_path": str(decisions_path), "suppressed_note_count": len(decisions)})
+
+
 SEPARATOR_ADAPTERS: dict[str, SeparatorAdapter] = {
     DirectSeparator.name: DirectSeparator(),
     DemucsSeparator.name: DemucsSeparator(),
 }
 TRANSCRIBER_ADAPTERS: dict[str, TranscriberAdapter] = {
     BasicPitchTranscriber.name: BasicPitchTranscriber(),
+    BasicPitchMonoTranscriber.name: BasicPitchMonoTranscriber(),
     "pyin_raw": PyinTranscriber(assembled=False),
     "pyin": PyinTranscriber(),
 }
