@@ -185,6 +185,8 @@ uv run python -m src.evaluation.benchmark \
 将来、Bass専用の正解MIDIを入手または作成できた場合は `--reference` を追加すると、
 onset/onset+offset/frame F1、過剰・欠落ノート、オクターブ誤り等も計算します。正解MIDI内の
 全非ドラムトラックは1つのBassパートとして統合します。
+平均時間重複率はonset/pitchの対応ペアから算出し、時間的に重ならない短音の
+寄与を0として平均に含めます。onsetやoffsetの許容値・音符対応は変更しません。
 
 ```bash
 uv run python -m src.evaluation.benchmark \
