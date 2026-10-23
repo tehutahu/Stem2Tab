@@ -266,3 +266,5 @@ MIT License
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
 See [pYIN offset diagnosis](docs/evaluation/PYIN_OFFSET_DIAGNOSIS.md) for the rejected offline RMS-rise hypothesis, synthetic reproduction and limitations.
+
+See [periodic-continuity diagnosis](docs/evaluation/PYIN_PERIODICITY_DIAGNOSIS.md) for the rejected waveform-periodicity hypothesis and same-phase repick counterexamples.

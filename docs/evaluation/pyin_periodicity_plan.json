@@ -1,0 +1,235 @@
+{
+  "hypothesis": "veto stable onset only when lag-one-period NCC >=.98 before/at/after onset",
+  "correlation_min": 0.98,
+  "pitch_stability_cents": 50,
+  "local_pitch_window_periods": 1,
+  "correlation_centers_periods": [
+    -2,
+    0,
+    2
+  ],
+  "correlation_window_periods": 2,
+  "sample_rate": 22050,
+  "correlation_definition": "mean removed NCC; fractional lag linear interpolation; sample bounds rounded to nearest; norm <=1e-20 or missing samples preserve onset",
+  "criteria": [
+    "no lost baseline reference matches overall or per odd track",
+    "recall nondecreasing",
+    "onset+offset F1 strictly improves",
+    "paired offset MAE nonincreasing",
+    "each synthetic group has no increased miss/extra or reduced onset+offset F1",
+    "no bridging rests or raw-run limits; no production/default changes"
+  ],
+  "scope": "odd 001..017 only; even excluded; one candidate, no threshold tuning",
+  "new_synthetic": [
+    {
+      "id": "rest_45ms",
+      "notes": [
+        [
+          31,
+          0.21,
+          0.21,
+          1
+        ],
+        [
+          31,
+          0.465,
+          0.23,
+          1
+        ]
+      ],
+      "mode": "normal"
+    },
+    {
+      "id": "rest_90ms",
+      "notes": [
+        [
+          36,
+          0.21,
+          0.17,
+          1
+        ],
+        [
+          36,
+          0.47,
+          0.22,
+          0.4
+        ]
+      ],
+      "mode": "normal"
+    },
+    {
+      "id": "short_low_notes",
+      "notes": [
+        [
+          26,
+          0.21,
+          0.08,
+          1
+        ],
+        [
+          31,
+          0.36,
+          0.1,
+          0.65
+        ],
+        [
+          36,
+          0.55,
+          0.12,
+          0.8
+        ]
+      ],
+      "mode": "normal"
+    },
+    {
+      "id": "equal_repicks",
+      "notes": [
+        [
+          36,
+          0.21,
+          0.26,
+          1
+        ],
+        [
+          36,
+          0.47,
+          0.26,
+          1
+        ],
+        [
+          36,
+          0.73,
+          0.26,
+          1
+        ]
+      ],
+      "mode": "normal"
+    },
+    {
+      "id": "softer_repicks",
+      "notes": [
+        [
+          31,
+          0.21,
+          0.29,
+          1
+        ],
+        [
+          31,
+          0.5,
+          0.29,
+          0.09
+        ],
+        [
+          31,
+          0.79,
+          0.29,
+          0.4
+        ]
+      ],
+      "mode": "normal"
+    },
+    {
+      "id": "phase_continuous_repicks",
+      "notes": [
+        [
+          33,
+          0.21,
+          0.27,
+          1
+        ],
+        [
+          33,
+          0.48,
+          0.27,
+          0.9
+        ],
+        [
+          33,
+          0.75,
+          0.27,
+          0.8
+        ]
+      ],
+      "mode": "continuous"
+    },
+    {
+      "id": "phase_continuous_rising_repicks",
+      "notes": [
+        [
+          33,
+          0.21,
+          0.27,
+          0.8
+        ],
+        [
+          33,
+          0.48,
+          0.27,
+          0.9
+        ],
+        [
+          33,
+          0.75,
+          0.27,
+          1
+        ]
+      ],
+      "mode": "continuous"
+    },
+    {
+      "id": "legato_changes",
+      "notes": [
+        [
+          31,
+          0.21,
+          0.28,
+          1
+        ],
+        [
+          33,
+          0.49,
+          0.22,
+          0.8
+        ],
+        [
+          36,
+          0.71,
+          0.27,
+          0.9
+        ]
+      ],
+      "mode": "legato"
+    },
+    {
+      "id": "weak_release",
+      "notes": [
+        [
+          31,
+          0.21,
+          0.86,
+          1
+        ]
+      ],
+      "mode": "decay"
+    },
+    {
+      "id": "vibrato_sustain",
+      "notes": [
+        [
+          36,
+          0.21,
+          0.89,
+          1
+        ]
+      ],
+      "mode": "vibrato"
+    },
+    {
+      "id": "silent",
+      "notes": [],
+      "mode": "normal"
+    }
+  ],
+  "source_sha256": "55255b3516a68c07dc3457a4cfca2634aed22d44d36f0c801eb0847b528a09b1"
+}

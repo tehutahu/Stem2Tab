@@ -427,3 +427,5 @@ make test-frontend
 ```
 
 See [pYIN offset diagnosis](evaluation/PYIN_OFFSET_DIAGNOSIS.md) for the rejected offline RMS-rise hypothesis, synthetic reproduction and limitations.
+
+See [periodic-continuity diagnosis](evaluation/PYIN_PERIODICITY_DIAGNOSIS.md) for the rejected waveform-periodicity hypothesis and same-phase repick counterexamples.

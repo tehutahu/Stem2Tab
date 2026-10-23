@@ -1,0 +1,3 @@
+scope,cases,completed,case_failures,candidate_assembly_and_midi_total_seconds,candidate_assembly_and_midi_mean_seconds,candidate_assembly_and_midi_p95_seconds,fresh_pyin_inference_seconds,baseline_runtime_comparison
+odd_saved_frames,9,9,0,0.38530563298991183,0.042811736998879094,0.050662218396610115,not_measured,not_measured
+new_synthetic,11,11,0,0.04336296399560524,0.0039420876359641125,0.005657370995322708,not_measured,not_measured
