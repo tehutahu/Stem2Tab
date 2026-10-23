@@ -80,7 +80,7 @@ def evaluate_note_events(
     }
 
     if estimated.notes:
-        onset_precision, onset_recall, onset_f1, overlap = (
+        onset_precision, onset_recall, onset_f1, _ = (
             mir_eval.transcription.precision_recall_f1_overlap(
                 ref_intervals,
                 ref_pitches,
@@ -108,6 +108,7 @@ def evaluate_note_events(
             offset_ratio=None,
             **common_kwargs,
         )
+        overlap = _average_overlap_ratio(ref_intervals, est_intervals, onset_matches)
     else:
         onset_precision = onset_recall = onset_f1 = overlap = 0.0
         onset_offset_precision = onset_offset_recall = onset_offset_f1 = 0.0
@@ -158,6 +159,27 @@ def _as_mir_eval_arrays(events: NoteEventSet) -> tuple[np.ndarray, np.ndarray]:
         dtype=float,
     )
     return intervals, pitches
+
+
+def _average_overlap_ratio(
+    reference: np.ndarray,
+    estimated: np.ndarray,
+    matches: list[tuple[int, int]],
+) -> float:
+    """Average temporal overlap over the unchanged onset/pitch matching.
+
+    Onset tolerance can match disjoint short notes. Their intersection is zero,
+    and they remain in the average. Use mir_eval's earliest-onset/latest-offset
+    span denominator, preserving its ratio for every overlapping pair.
+    """
+    ratios = []
+    for reference_index, estimated_index in matches:
+        ref = reference[reference_index]
+        est = estimated[estimated_index]
+        intersection = max(0.0, min(ref[1], est[1]) - max(ref[0], est[0]))
+        span = max(ref[1], est[1]) - min(ref[0], est[0])
+        ratios.append(intersection / span)
+    return float(np.mean(ratios)) if ratios else 0.0
 
 
 def _frame_metrics(
