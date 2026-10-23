@@ -69,3 +69,5 @@ CUDA_VISIBLE_DEVICES='' BASIC_PITCH_MODEL_SERIALIZATION=onnx PYTHONPATH=. /path/
 PR6の固定headにPR7の指標修正3ファイルを重ねた評価であり、両PRをマージしたものではない。
 
 固定記録SHA256 `95ab63f48f7378e1fff92ec2856be9f9cef078cba3e2323d513fb03943913741`。音符境界を変更していないため、候補のoffset F1上昇は余剰削減によるもので、境界精度自体の改善を意味しない。
+
+追加調査: [偽subharmonicと非採用guardの反例](SUBHARMONIC_RISK.md)。production方式は変更せず、評価済み偶数側を次候補へ再利用していない。

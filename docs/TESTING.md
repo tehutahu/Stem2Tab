@@ -430,3 +430,7 @@ make test-frontend
 
 評価CLIの `--transcribers basic_pitch_mono` は、生Basic Pitch結果を保存して包含された倍音候補だけを抑制します。
 既定backendは変更しません。複音・偽subharmonicによる欠落リスク、実録音と合成回帰の結果は[評価記録](evaluation/IDMT_MONO_HARMONICS.md)を参照してください。
+
+### 偽subharmonicの診断反例
+
+`PYTHONPATH=. python scripts/subharmonic_counterexamples.py --output-dir benchmark_results/new-private-counterexamples` は、モデル実推論と分離した人工raw反例を新規出力先へ保存します。support音域guardは非採用の診断仮説です。[結果と制限](evaluation/SUBHARMONIC_RISK.md)を参照してください。
