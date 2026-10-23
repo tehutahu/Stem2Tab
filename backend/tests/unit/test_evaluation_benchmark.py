@@ -332,3 +332,51 @@ def test_cli_auto_numbers_output_directory(
     assert len(generated) == 1
     assert generated[0].name.startswith("audio-")
     assert (generated[0] / "report.md").is_file()
+
+
+def test_cli_accepts_onset_match_without_temporal_overlap(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A short early estimate may match an onset while overlapping no audio time."""
+    class EarlyTranscriber:
+        name = "early"
+
+        def run(
+            self,
+            audio_path: Path,
+            output_dir: Path,
+            *,
+            config: AdapterConfig,
+        ) -> TranscriptionResult:
+            del audio_path, config
+            events = NoteEventSet(notes=(NoteEvent(start=0.06, end=0.08, midi=28),))
+            return TranscriptionResult(
+                raw_midi_path=write_midi(events, output_dir / "raw.mid"),
+                events=events,
+            )
+
+    monkeypatch.setitem(adapters.TRANSCRIBER_ADAPTERS, "early", EarlyTranscriber())
+    audio = tmp_path / "audio.wav"
+    audio.write_bytes(b"synthetic audio placeholder")
+    reference = write_midi(
+        NoteEventSet(notes=(NoteEvent(start=0.1, end=0.2, midi=28),)),
+        tmp_path / "reference.mid",
+    )
+    output = tmp_path / "result"
+
+    code = main([
+        "--audio", str(audio), "--reference", str(reference),
+        "--transcribers", "early", "--output-dir", str(output),
+    ])
+
+    assert code == 0
+    record = json.loads((output / "runs/direct__early/metrics.json").read_text())
+    assert record["status"] == "success"
+    assert record["error"] is None
+    assert record["metrics"]["average_overlap_ratio"] == 0.0
+    assert record["metrics"]["onset_f1"] == 1.0
+    assert record["metrics"]["onset_offset_f1"] == 0.0
+    assert record["metrics"]["extra_note_count"] == 0
+    assert record["metrics"]["missed_note_count"] == 0
+    assert (output / "report.html").is_file()

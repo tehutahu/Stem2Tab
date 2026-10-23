@@ -425,3 +425,8 @@ make test-backend
 # frontend テスト＋ビルド
 make test-frontend
 ```
+
+### 任意の単音ベース倍音フィルタ評価
+
+評価CLIの `--transcribers basic_pitch_mono` は、生Basic Pitch結果を保存して包含された倍音候補だけを抑制します。
+既定backendは変更しません。複音・偽subharmonicによる欠落リスク、実録音と合成回帰の結果は[評価記録](evaluation/IDMT_MONO_HARMONICS.md)を参照してください。
