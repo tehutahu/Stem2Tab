@@ -434,3 +434,8 @@ make test-frontend
 ### 偽subharmonicの診断反例
 
 `PYTHONPATH=. python scripts/subharmonic_counterexamples.py --output-dir benchmark_results/new-private-counterexamples` は、モデル実推論と分離した人工raw反例を新規出力先へ保存します。support音域guardは非採用の診断仮説です。[結果と制限](evaluation/SUBHARMONIC_RISK.md)を参照してください。
+
+### 任意の譜面出力監査
+
+評価CLIの `--notation-audit --notation-strings 4` で、推論ノート・量子化・GP5/MusicXML再読込の指標を別々に保存できます。既定は無効です。保存MIDIだけなら `python -m src.evaluation.notation_audit --midi PRIVATE.mid --output-dir NEW_PRIVATE_DIR` を使います。生成する固定テンポ4/4形式だけを対象とし、実曲の拍推定や運指正解率とは区別します。
+[全工程比較と制約](evaluation/SYSTEM_AUDIT_20261023.md)を参照してください。
