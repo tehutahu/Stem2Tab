@@ -264,3 +264,5 @@ MIT License
 - [AlphaTab Documentation](https://alphatab.net/docs/introduction/)
 - [Docker GPU Support](https://docs.docker.com/compose/how-tos/gpu-support/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+See [pYIN offset diagnosis](docs/evaluation/PYIN_OFFSET_DIAGNOSIS.md) for the rejected offline RMS-rise hypothesis, synthetic reproduction and limitations.

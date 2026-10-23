@@ -425,3 +425,5 @@ make test-backend
 # frontend テスト＋ビルド
 make test-frontend
 ```
+
+See [pYIN offset diagnosis](evaluation/PYIN_OFFSET_DIAGNOSIS.md) for the rejected offline RMS-rise hypothesis, synthetic reproduction and limitations.
