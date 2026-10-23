@@ -93,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Demucs model cache (default: .cache/demucs under the current directory)",
     )
+    parser.add_argument(
+        "--notation-audit", action="store_true",
+        help="Export GP5/XML and audit note/tie roundtrip separately from transcription",
+    )
+    parser.add_argument("--notation-strings", type=int, choices=[4, 5, 6], default=4)
     return parser
 
 
@@ -270,19 +275,37 @@ def run_benchmark(args: argparse.Namespace) -> tuple[Path, list[RunRecord], str]
                     if reference is not None
                     else None
                 )
+                notation_metadata = {}
+                notation_error = None
+                if getattr(args, "notation_audit", False):
+                    from src.evaluation.notation_audit import audit_notation
+                    notation_summary = audit_notation(
+                        run_dir / "performance.mid", run_dir / "notation",
+                        reference=reference, metric_config=metric_config,
+                        strings=getattr(args, "notation_strings", 4),
+                    )
+                    notation_metadata = {
+                        "notation_audit_path": str(run_dir / "notation" / "summary.json"),
+                        "notation_status": notation_summary["status"],
+                        "notation_seconds": notation_summary["seconds"],
+                    }
+                    if notation_summary["status"] != "success":
+                        notation_error = "Notation audit: " + notation_summary.get("error", "roundtrip integrity mismatch")
                 record = RunRecord(
                     run_id=run_id,
                     separator=separator_name,
                     transcriber=transcriber_name,
-                    status="success",
+                    status="error" if notation_error else "success",
                     reference_available=reference is not None,
                     separator_seconds=separator_seconds,
                     transcription_seconds=transcription_seconds,
                     estimated_note_count=len(estimated.notes),
                     metrics=metrics,
+                    error=notation_error,
                     adapter_metadata={
                         **separated.metadata,
                         **transcription.metadata,
+                        **notation_metadata,
                         "raw_midi_path": str(transcription.raw_midi_path),
                     },
                 )

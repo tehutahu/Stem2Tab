@@ -269,3 +269,8 @@ MIT License
 
 評価CLIの `--transcribers basic_pitch_mono` は、生Basic Pitch結果を保存して包含された倍音候補だけを抑制します。
 既定backendは変更しません。複音・偽subharmonicによる欠落リスク、実録音と合成回帰の結果は[評価記録](docs/evaluation/IDMT_MONO_HARMONICS.md)を参照してください。
+
+### 任意の譜面出力監査
+
+評価CLIの `--notation-audit --notation-strings 4` で、推論ノート・量子化・GP5/MusicXML再読込の指標を別々に保存できます。既定は無効です。保存MIDIだけなら `python -m src.evaluation.notation_audit --midi PRIVATE.mid --output-dir NEW_PRIVATE_DIR` を使います。生成する固定テンポ4/4形式だけを対象とし、実曲の拍推定や運指正解率とは区別します。
+[全工程比較と制約](docs/evaluation/SYSTEM_AUDIT_20261023.md)を参照してください。
