@@ -80,7 +80,7 @@ def evaluate_note_events(
     }
 
     if estimated.notes:
-        onset_precision, onset_recall, onset_f1, overlap = (
+        onset_precision, onset_recall, onset_f1, _ = (
             mir_eval.transcription.precision_recall_f1_overlap(
                 ref_intervals,
                 ref_pitches,
@@ -108,6 +108,7 @@ def evaluate_note_events(
             offset_ratio=None,
             **common_kwargs,
         )
+        overlap = _average_overlap_ratio(ref_intervals, est_intervals, onset_matches)
     else:
         onset_precision = onset_recall = onset_f1 = overlap = 0.0
         onset_offset_precision = onset_offset_recall = onset_offset_f1 = 0.0
@@ -146,6 +147,22 @@ def evaluate_note_events(
         duration_mae_ms=duration_mae_ms,
         runtime_seconds=runtime_seconds,
     )
+
+
+def _average_overlap_ratio(
+    reference: np.ndarray,
+    estimated: np.ndarray,
+    matches: list[tuple[int, int]],
+) -> float:
+    """Average nonnegative interval overlap over the existing onset matches."""
+    ratios = []
+    for reference_index, estimated_index in matches:
+        ref_start, ref_end = reference[reference_index]
+        est_start, est_end = estimated[estimated_index]
+        intersection = max(0.0, min(ref_end, est_end) - max(ref_start, est_start))
+        span = max(ref_end, est_end) - min(ref_start, est_start)
+        ratios.append(intersection / span)
+    return float(np.mean(ratios)) if ratios else 0.0
 
 
 def _as_mir_eval_arrays(events: NoteEventSet) -> tuple[np.ndarray, np.ndarray]:
