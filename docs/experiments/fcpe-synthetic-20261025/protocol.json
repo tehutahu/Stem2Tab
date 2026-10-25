@@ -1,0 +1,1482 @@
+{
+  "audio_format": "mono PCM16 WAV",
+  "audio_sample_rate": 22050,
+  "basic_pitch_event_statistics": {
+    "matching": "maximum cardinality one-to-one; onset-only and onset+offset separately; FCPE excluded",
+    "offset_tolerance": "max(0.05s,0.2*reference duration)",
+    "onset_tolerance_s": 0.05,
+    "pitch_tolerance_cents": 50
+  },
+  "boundary_observations": "first/last20ms correct-frame fraction and first-correct-frame latency; descriptive only. Contiguous same-pitch attacks cannot be distinguished by F0.",
+  "clip_count": 46,
+  "clips": [
+    {
+      "audio_file": "artifacts/fixtures/short_sine_40ms.wav",
+      "audio_sha256": "beb064cf9ca1873ba7e58116b6bd47c054362289418322d435a10ea513986674",
+      "category": "short",
+      "duration_s": 0.68,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.24,
+          "offset_sample": 5292,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.48,
+          "offset_sample": 10584,
+          "onset_s": 0.44,
+          "onset_sample": 9702,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_sine_40ms",
+      "samples": 14994,
+      "seed": 20261025,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_sine_60ms.wav",
+      "audio_sha256": "0c41f8898d7356e62c23e53fcb982af27d03cb7e9d52222e96d98f871bacde45",
+      "category": "short",
+      "duration_s": 0.72,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.26,
+          "offset_sample": 5733,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.52,
+          "offset_sample": 11466,
+          "onset_s": 0.46,
+          "onset_sample": 10143,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_sine_60ms",
+      "samples": 15876,
+      "seed": 20261026,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_sine_90ms.wav",
+      "audio_sha256": "abc4fc7a6018273244b676366d44d16ed8381938bb743ee37c8171d4b2fb55d2",
+      "category": "short",
+      "duration_s": 0.78,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.29002267573696144,
+          "offset_sample": 6395,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.58,
+          "offset_sample": 12789,
+          "onset_s": 0.4899773242630385,
+          "onset_sample": 10804,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_sine_90ms",
+      "samples": 17199,
+      "seed": 20261027,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_sine_120ms.wav",
+      "audio_sha256": "93073a770b7db21687c500020892cf589d16dfa3e995e86d80b82638d410f2b6",
+      "category": "short",
+      "duration_s": 0.84,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.64,
+          "offset_sample": 14112,
+          "onset_s": 0.52,
+          "onset_sample": 11466,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_sine_120ms",
+      "samples": 18522,
+      "seed": 20261028,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_sine_200ms.wav",
+      "audio_sha256": "febbf329ddbb763a0baf9f6c01dd8332eb3ec4eecb1a2d7455547c5818565682",
+      "category": "short",
+      "duration_s": 1.0,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.4,
+          "offset_sample": 8820,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.8,
+          "offset_sample": 17640,
+          "onset_s": 0.6,
+          "onset_sample": 13230,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_sine_200ms",
+      "samples": 22050,
+      "seed": 20261029,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_plucked_40ms.wav",
+      "audio_sha256": "1d208bf363dda2523493c9f5df2f741ae61b71cec127d181a8eef5654cb2adc9",
+      "category": "short",
+      "duration_s": 0.68,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.24,
+          "offset_sample": 5292,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.48,
+          "offset_sample": 10584,
+          "onset_s": 0.44,
+          "onset_sample": 9702,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_plucked_40ms",
+      "samples": 14994,
+      "seed": 20261030,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_plucked_60ms.wav",
+      "audio_sha256": "dd43f8fe068591dea614e595cb91195ea4b533c3294d93def1f4b29015d8c2e3",
+      "category": "short",
+      "duration_s": 0.72,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.26,
+          "offset_sample": 5733,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.52,
+          "offset_sample": 11466,
+          "onset_s": 0.46,
+          "onset_sample": 10143,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_plucked_60ms",
+      "samples": 15876,
+      "seed": 20261031,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_plucked_90ms.wav",
+      "audio_sha256": "6426649fc5ba8eef9107087c384917854300811bdf9c74a8ee2a61f0226cee26",
+      "category": "short",
+      "duration_s": 0.78,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.29002267573696144,
+          "offset_sample": 6395,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.58,
+          "offset_sample": 12789,
+          "onset_s": 0.4899773242630385,
+          "onset_sample": 10804,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_plucked_90ms",
+      "samples": 17199,
+      "seed": 20261032,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_plucked_120ms.wav",
+      "audio_sha256": "ff3f50e9e8b452c3996076c5250769dcb60fec03e28b6afa14f76e2f66161a60",
+      "category": "short",
+      "duration_s": 0.84,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.64,
+          "offset_sample": 14112,
+          "onset_s": 0.52,
+          "onset_sample": 11466,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_plucked_120ms",
+      "samples": 18522,
+      "seed": 20261033,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/short_plucked_200ms.wav",
+      "audio_sha256": "dbeeacf9e8cec9a758ffc7dcbb9ca1e91865a0194277e57559f01b9859eb2cdc",
+      "category": "short",
+      "duration_s": 1.0,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.4,
+          "offset_sample": 8820,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.8,
+          "offset_sample": 17640,
+          "onset_s": 0.6,
+          "onset_sample": 13230,
+          "pitch": "A1"
+        }
+      ],
+      "id": "short_plucked_200ms",
+      "samples": 22050,
+      "seed": 20261034,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_E1_gap0ms.wav",
+      "audio_sha256": "8e972e6ba423e8444a2747cc4783008f47bc4a4112b137cfb727378c4fd1aad0",
+      "category": "repeated",
+      "duration_s": 0.88,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.44,
+          "offset_sample": 9702,
+          "onset_s": 0.32,
+          "onset_sample": 7056,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.56,
+          "offset_sample": 12348,
+          "onset_s": 0.44,
+          "onset_sample": 9702,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.68,
+          "offset_sample": 14994,
+          "onset_s": 0.56,
+          "onset_sample": 12348,
+          "pitch": "E1"
+        }
+      ],
+      "id": "repeat_E1_gap0ms",
+      "samples": 19404,
+      "seed": 20261035,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_E1_gap20ms.wav",
+      "audio_sha256": "2680f9e527267aa812f734efb6ed2c4ac143849385c2369fa02010d621b42df8",
+      "category": "repeated",
+      "duration_s": 0.94,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.46,
+          "offset_sample": 10143,
+          "onset_s": 0.34,
+          "onset_sample": 7497,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.6,
+          "offset_sample": 13230,
+          "onset_s": 0.48,
+          "onset_sample": 10584,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.74,
+          "offset_sample": 16317,
+          "onset_s": 0.62,
+          "onset_sample": 13671,
+          "pitch": "E1"
+        }
+      ],
+      "id": "repeat_E1_gap20ms",
+      "samples": 20727,
+      "seed": 20261036,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_E1_gap50ms.wav",
+      "audio_sha256": "a74bb2c147d6b8800e6a24c7b41db2860a85ef0d5979d4978c2c887b77377c84",
+      "category": "repeated",
+      "duration_s": 1.0300226757369615,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.4899773242630385,
+          "offset_sample": 10804,
+          "onset_s": 0.36997732426303853,
+          "onset_sample": 8158,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.66,
+          "offset_sample": 14553,
+          "onset_s": 0.54,
+          "onset_sample": 11907,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.8300226757369614,
+          "offset_sample": 18302,
+          "onset_s": 0.7100226757369614,
+          "onset_sample": 15656,
+          "pitch": "E1"
+        }
+      ],
+      "id": "repeat_E1_gap50ms",
+      "samples": 22712,
+      "seed": 20261037,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_E1_gap100ms.wav",
+      "audio_sha256": "3c5399a31c51196d56f20943a321ed15a8b60705c8777fe07355cef1984493fe",
+      "category": "repeated",
+      "duration_s": 1.18,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.54,
+          "offset_sample": 11907,
+          "onset_s": 0.42,
+          "onset_sample": 9261,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.76,
+          "offset_sample": 16758,
+          "onset_s": 0.64,
+          "onset_sample": 14112,
+          "pitch": "E1"
+        },
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 0.98,
+          "offset_sample": 21609,
+          "onset_s": 0.86,
+          "onset_sample": 18963,
+          "pitch": "E1"
+        }
+      ],
+      "id": "repeat_E1_gap100ms",
+      "samples": 26019,
+      "seed": 20261038,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_A1_gap0ms.wav",
+      "audio_sha256": "5fc1fac568b93f22be14e572fb720e3a8df557048d531c2c48dbb70f01690ac6",
+      "category": "repeated",
+      "duration_s": 0.88,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.44,
+          "offset_sample": 9702,
+          "onset_s": 0.32,
+          "onset_sample": 7056,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.56,
+          "offset_sample": 12348,
+          "onset_s": 0.44,
+          "onset_sample": 9702,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.68,
+          "offset_sample": 14994,
+          "onset_s": 0.56,
+          "onset_sample": 12348,
+          "pitch": "A1"
+        }
+      ],
+      "id": "repeat_A1_gap0ms",
+      "samples": 19404,
+      "seed": 20261039,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_A1_gap20ms.wav",
+      "audio_sha256": "28d8945fa35e1e28c94a480817ff5d675ea76fd624aca4c2f9637cb3b46239e9",
+      "category": "repeated",
+      "duration_s": 0.94,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.46,
+          "offset_sample": 10143,
+          "onset_s": 0.34,
+          "onset_sample": 7497,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.6,
+          "offset_sample": 13230,
+          "onset_s": 0.48,
+          "onset_sample": 10584,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.74,
+          "offset_sample": 16317,
+          "onset_s": 0.62,
+          "onset_sample": 13671,
+          "pitch": "A1"
+        }
+      ],
+      "id": "repeat_A1_gap20ms",
+      "samples": 20727,
+      "seed": 20261040,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_A1_gap50ms.wav",
+      "audio_sha256": "d827756b642fdde19804eb76f221f7c59535eef807192eebe05f80a53da3c3e4",
+      "category": "repeated",
+      "duration_s": 1.0300226757369615,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.4899773242630385,
+          "offset_sample": 10804,
+          "onset_s": 0.36997732426303853,
+          "onset_sample": 8158,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.66,
+          "offset_sample": 14553,
+          "onset_s": 0.54,
+          "onset_sample": 11907,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.8300226757369614,
+          "offset_sample": 18302,
+          "onset_s": 0.7100226757369614,
+          "onset_sample": 15656,
+          "pitch": "A1"
+        }
+      ],
+      "id": "repeat_A1_gap50ms",
+      "samples": 22712,
+      "seed": 20261041,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/repeat_A1_gap100ms.wav",
+      "audio_sha256": "5fb5f8fc577efc771e73fa9452cf4c0c7e5aab4e5e71a00a6823bf3365fa4dec",
+      "category": "repeated",
+      "duration_s": 1.18,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.32,
+          "offset_sample": 7056,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.54,
+          "offset_sample": 11907,
+          "onset_s": 0.42,
+          "onset_sample": 9261,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.76,
+          "offset_sample": 16758,
+          "onset_s": 0.64,
+          "onset_sample": 14112,
+          "pitch": "A1"
+        },
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 0.98,
+          "offset_sample": 21609,
+          "onset_s": 0.86,
+          "onset_sample": 18963,
+          "pitch": "A1"
+        }
+      ],
+      "id": "repeat_A1_gap100ms",
+      "samples": 26019,
+      "seed": 20261042,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_C1_1s.wav",
+      "audio_sha256": "89d2cc7198bf33888e2b32f528b082d032c20e00eef422ded9a6b731327cba59",
+      "category": "sustained",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "sustain_C1_1s",
+      "samples": 30870,
+      "seed": 20261043,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_C1_2s.wav",
+      "audio_sha256": "29564880326324ecc098b2175605c9d48537234b87913075fdde28cf9e433f99",
+      "category": "sustained",
+      "duration_s": 2.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 2.2,
+          "offset_sample": 48510,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "sustain_C1_2s",
+      "samples": 52920,
+      "seed": 20261044,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/missing_fundamental_C1.wav",
+      "audio_sha256": "93aed4610b5354863af8772b2cf15895e859599fe4b8fae5704675ed1df01dc6",
+      "category": "missing_fundamental",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "missing_fundamental_C1",
+      "samples": 30870,
+      "seed": 20261045,
+      "snr_db": null,
+      "timbre": "missing_fundamental"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_E1_1s.wav",
+      "audio_sha256": "9519e8821f41e8da65a581151a72c9d43c70696a41a453313dab8e18e71be3dc",
+      "category": "sustained",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "sustain_E1_1s",
+      "samples": 30870,
+      "seed": 20261046,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_E1_2s.wav",
+      "audio_sha256": "d721b350ce5e3f3092dda13731c652f8c5360984a02b4a114eef6b5c2adccc5c",
+      "category": "sustained",
+      "duration_s": 2.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 2.2,
+          "offset_sample": 48510,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "sustain_E1_2s",
+      "samples": 52920,
+      "seed": 20261047,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/missing_fundamental_E1.wav",
+      "audio_sha256": "d4efbb59c93b1ef904010d9a7481ae7b68ac485c0da18a3af4fa4dc1498827f5",
+      "category": "missing_fundamental",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "missing_fundamental_E1",
+      "samples": 30870,
+      "seed": 20261048,
+      "snr_db": null,
+      "timbre": "missing_fundamental"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_A1_1s.wav",
+      "audio_sha256": "41b3f362861e01a5beeea5be14f99940dbf75687769c91cd1751545c547485c2",
+      "category": "sustained",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "sustain_A1_1s",
+      "samples": 30870,
+      "seed": 20261049,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_A1_2s.wav",
+      "audio_sha256": "87567d37440e0eab0db213dc831f4a55b1e7cf7ddc962b3f3c2f15f4157e5a86",
+      "category": "sustained",
+      "duration_s": 2.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 2.2,
+          "offset_sample": 48510,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "sustain_A1_2s",
+      "samples": 52920,
+      "seed": 20261050,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/missing_fundamental_A1.wav",
+      "audio_sha256": "fc73a515990fba4e4b07236e79628dc1ba4cab0829d38581a3da70b801b1cf88",
+      "category": "missing_fundamental",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "missing_fundamental_A1",
+      "samples": 30870,
+      "seed": 20261051,
+      "snr_db": null,
+      "timbre": "missing_fundamental"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_D2_1s.wav",
+      "audio_sha256": "cd4dae5fe856b44a62571e9f05d31df10020326d4eadbf842526400602e4b7af",
+      "category": "sustained",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 73.41619197935188,
+          "midi": 38,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "D2"
+        }
+      ],
+      "id": "sustain_D2_1s",
+      "samples": 30870,
+      "seed": 20261052,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_D2_2s.wav",
+      "audio_sha256": "840c289071a94867650e98f771bdcfc4b9ba4ae545fc590ec230f0b96179c312",
+      "category": "sustained",
+      "duration_s": 2.4,
+      "events": [
+        {
+          "f0_hz": 73.41619197935188,
+          "midi": 38,
+          "offset_s": 2.2,
+          "offset_sample": 48510,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "D2"
+        }
+      ],
+      "id": "sustain_D2_2s",
+      "samples": 52920,
+      "seed": 20261053,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/missing_fundamental_D2.wav",
+      "audio_sha256": "4e5da31b2d96666518d4e47cf7a76e709580fb7e93f8f4b4769240973dcd66e2",
+      "category": "missing_fundamental",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 73.41619197935188,
+          "midi": 38,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "D2"
+        }
+      ],
+      "id": "missing_fundamental_D2",
+      "samples": 30870,
+      "seed": 20261054,
+      "snr_db": null,
+      "timbre": "missing_fundamental"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_G2_1s.wav",
+      "audio_sha256": "d4c0b2f769866d4c7812e5812cb0fd4b79f66c7bafc210644a8d8abe0100c0c3",
+      "category": "sustained",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 97.99885899543733,
+          "midi": 43,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "G2"
+        }
+      ],
+      "id": "sustain_G2_1s",
+      "samples": 30870,
+      "seed": 20261055,
+      "snr_db": null,
+      "timbre": "sine"
+    },
+    {
+      "audio_file": "artifacts/fixtures/sustain_G2_2s.wav",
+      "audio_sha256": "aec8946d728ed48a18be4df02ed0efcaea37a46d803b399367306c28809e68d1",
+      "category": "sustained",
+      "duration_s": 2.4,
+      "events": [
+        {
+          "f0_hz": 97.99885899543733,
+          "midi": 43,
+          "offset_s": 2.2,
+          "offset_sample": 48510,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "G2"
+        }
+      ],
+      "id": "sustain_G2_2s",
+      "samples": 52920,
+      "seed": 20261056,
+      "snr_db": null,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/missing_fundamental_G2.wav",
+      "audio_sha256": "3e81b969a0413b3224a64724205e5be05b058ae6bf5ec576176bf7f1ba88cb72",
+      "category": "missing_fundamental",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 97.99885899543733,
+          "midi": 43,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "G2"
+        }
+      ],
+      "id": "missing_fundamental_G2",
+      "samples": 30870,
+      "seed": 20261057,
+      "snr_db": null,
+      "timbre": "missing_fundamental"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_C1_20dB.wav",
+      "audio_sha256": "cf51ff355baebe26fd2ac6618794e3544f6ab4d72ad870a79fc76624aa063b24",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "noise_C1_20dB",
+      "samples": 30870,
+      "seed": 20261058,
+      "snr_db": 20,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_C1_10dB.wav",
+      "audio_sha256": "2d9bd5c438f839be5cd633ffbd91610ea58683eda369edde7cc125ee8bbf3fe4",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "noise_C1_10dB",
+      "samples": 30870,
+      "seed": 20261059,
+      "snr_db": 10,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_C1_0dB.wav",
+      "audio_sha256": "03d69fde21d8c1d0a89512568ddef1579d13575907108325b455b516d131dcfd",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 32.70319566257483,
+          "midi": 24,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "C1"
+        }
+      ],
+      "id": "noise_C1_0dB",
+      "samples": 30870,
+      "seed": 20261060,
+      "snr_db": 0,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_E1_20dB.wav",
+      "audio_sha256": "8ade5d8a59e197c35e0679f48938fa42073ed274d490bcca79137e6884429f45",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "noise_E1_20dB",
+      "samples": 30870,
+      "seed": 20261061,
+      "snr_db": 20,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_E1_10dB.wav",
+      "audio_sha256": "dba57697953bb9de5ccaf17d06881b72f4ade067d23d8cb155f325357813a9f3",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "noise_E1_10dB",
+      "samples": 30870,
+      "seed": 20261062,
+      "snr_db": 10,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_E1_0dB.wav",
+      "audio_sha256": "cf4ef8098a394185811077062cbf01c430f293518622c7a1bb1f3a2366c18862",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 41.20344461410875,
+          "midi": 28,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "E1"
+        }
+      ],
+      "id": "noise_E1_0dB",
+      "samples": 30870,
+      "seed": 20261063,
+      "snr_db": 0,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_A1_20dB.wav",
+      "audio_sha256": "bb37e2f99b98c998a1e62415041b81471d39938eb735a8e108b89a2a6b5cc936",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "noise_A1_20dB",
+      "samples": 30870,
+      "seed": 20261064,
+      "snr_db": 20,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_A1_10dB.wav",
+      "audio_sha256": "1b37803dac9a047a944f4d577ee5b62e7564e25cccafbae5cb7e8885fefe35e0",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "noise_A1_10dB",
+      "samples": 30870,
+      "seed": 20261065,
+      "snr_db": 10,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/noise_A1_0dB.wav",
+      "audio_sha256": "c10ea7a78188f946bc6c838f6db0a4ff0f534ac0c406af7e373d9a98ad0120c5",
+      "category": "additive_noise",
+      "duration_s": 1.4,
+      "events": [
+        {
+          "f0_hz": 55.0,
+          "midi": 33,
+          "offset_s": 1.2,
+          "offset_sample": 26460,
+          "onset_s": 0.2,
+          "onset_sample": 4410,
+          "pitch": "A1"
+        }
+      ],
+      "id": "noise_A1_0dB",
+      "samples": 30870,
+      "seed": 20261066,
+      "snr_db": 0,
+      "timbre": "plucked"
+    },
+    {
+      "audio_file": "artifacts/fixtures/pure_noise_0.wav",
+      "audio_sha256": "3836eb817fa889036561ccdc33c0f2b62f2baa04d142153b5b1f8386fa8e45d8",
+      "category": "pure_noise",
+      "duration_s": 2.0,
+      "events": [],
+      "id": "pure_noise_0",
+      "samples": 44100,
+      "seed": 20261067,
+      "snr_db": null,
+      "timbre": "noise"
+    },
+    {
+      "audio_file": "artifacts/fixtures/pure_noise_1.wav",
+      "audio_sha256": "1ee8db7902f650b57a325ad7acac2388ecf0993daa13fa0a0b105f7316f597c8",
+      "category": "pure_noise",
+      "duration_s": 2.0,
+      "events": [],
+      "id": "pure_noise_1",
+      "samples": 44100,
+      "seed": 20261068,
+      "snr_db": null,
+      "timbre": "noise"
+    },
+    {
+      "audio_file": "artifacts/fixtures/pure_noise_2.wav",
+      "audio_sha256": "224f039ce095d660eddd9185f00c6b33a919071cc2ffa14d0f8774e40db4849b",
+      "category": "pure_noise",
+      "duration_s": 2.0,
+      "events": [],
+      "id": "pure_noise_2",
+      "samples": 44100,
+      "seed": 20261069,
+      "snr_db": null,
+      "timbre": "noise"
+    },
+    {
+      "audio_file": "artifacts/fixtures/silence.wav",
+      "audio_sha256": "5ba66f0b9a8dd400b3037d65e5febd0620a46b9f03b9f913e00e02fca7830685",
+      "category": "silence",
+      "duration_s": 2.0,
+      "events": [],
+      "id": "silence",
+      "samples": 44100,
+      "seed": 20261070,
+      "snr_db": null,
+      "timbre": "silence"
+    }
+  ],
+  "decision_criteria": {
+    "interpretation": "If pitch recovery is strong but voicing gate fails, frame F0 may be supplemental research only; never conclude onset or complete transcription superiority. Primary micro F1 is duration-weighted; short/repeated claims require category metrics. Synthetic success requires later real-audio evaluation.",
+    "promising_frame_candidate": "FCPE rescues >=20% of BP-low true-bin GT frames, FCPE overall micro pitch F1 > BP projected raw-frame baseline, AND pure_noise category-micro and silence category-micro false-voiced rates each <=5%",
+    "rescue_denominator": "GT voiced frames where aligned BP true-MIDI-bin probability <0.3; uncovered BP excluded"
+  },
+  "excluded_pitches": [
+    "B0"
+  ],
+  "execution": {
+    "device": "cpu",
+    "inter_op_threads": 1,
+    "no_threshold_tuning": true,
+    "onnx_execution_mode": "sequential",
+    "privacy": "local only; no model/audio publication or commits; no production/default changes",
+    "raw_outputs": "preserve native arrays, timestamps, config, model/source hashes and default events; no pickle arrays",
+    "state": "FROZEN_BEFORE_INFERENCE",
+    "threads": 4,
+    "timings": "imports, model load, first inference, warm inference separately; wall/cpu/RSS per subprocess; no cold-cache or GPU claims",
+    "warm_fixture": "sustain_E1_2s",
+    "warm_repeats": 2,
+    "worker": "fresh subprocess per model; shared process for its clips"
+  },
+  "frame_metrics": {
+    "aggregation": "micro from summed counts; per-clip and per-category counts also saved; zero denominator -> null",
+    "counterfactual": "count GT voiced frames where FCPE pitch correct and BP true-MIDI-bin probability <0.3; report fraction of all GT frames and low-BP-true-bin subset",
+    "diagnostics": [
+      "jointly_voiced_median_absolute_cents",
+      "jointly_voiced_octave_error_fraction_within50cents_of1200",
+      "BP full active-bin set pitch precision/recall/F1",
+      "category boundary first-correct latency median"
+    ],
+    "grid": "centers at 0.005+0.01*k strictly before clip end",
+    "ground_truth": "integer-sample half-open [onset,offset); no boundary collar",
+    "hop_s": 0.01,
+    "native_alignment": "nearest native time; ties earlier; no fitted time shift; outside half-hop support unvoiced",
+    "negative_controls": [
+      "pure_noise_false_voiced_rate",
+      "silence_false_voiced_rate",
+      "all_unvoiced_false_voiced_rate"
+    ],
+    "pitch_fn": "all ground-truth voiced minus pitch_tp",
+    "pitch_fp": "all predicted voiced minus pitch_tp",
+    "pitch_tolerance_cents": 50,
+    "pitch_tp": "ground-truth voiced AND predicted voiced AND absolute pitch error <=50cents",
+    "primary": [
+      "pitch_precision",
+      "pitch_recall",
+      "pitch_f1",
+      "voicing_precision",
+      "voicing_recall",
+      "voicing_f1"
+    ],
+    "threshold_comparison": "FCPE >; BP >"
+  },
+  "minimum_ground_truth_hz": 32.70319566257483,
+  "models": {
+    "basic_pitch": {
+      "backend": "ONNX CPU",
+      "default_events": {
+        "frame_threshold": 0.3,
+        "maximum_frequency": null,
+        "melodia_trick": true,
+        "minimum_frequency": null,
+        "minimum_note_length_ms": 127.7,
+        "multiple_pitch_bends": false,
+        "onset_threshold": 0.5
+      },
+      "midi_min": 21,
+      "native_timestamps": "basic_pitch.note_creation.model_frames_to_time(N)",
+      "note_bins": 88,
+      "raw_frame_baseline": "highest probability note bin; voiced if max >0.3; no range mask; monophonic projection discards secondary activations and cannot establish superiority over full BP output",
+      "raw_frame_threshold": 0.3,
+      "version": "0.4.0"
+    },
+    "fcpe": {
+      "checkpoint_file": "models/DDSP_200k.pt",
+      "confidence_threshold": 0.006,
+      "decoder": "local_argmax",
+      "f0_max_hz": 1975.5,
+      "f0_min_hz": 32.7,
+      "hop_samples": 160,
+      "interp_uv": false,
+      "load_policy": "torch.load(weights_only=True,map_location='cpu'); no allowlist relaxation",
+      "native_timestamps": "(frame_index*160+80)/16000; 5ms physical window centers; no fitted shift",
+      "output_f0_clipping": false,
+      "resampling": "external librosa.resample(orig_sr=22050,target_sr=16000,res_type='soxr_hq',fix=True,scale=False), float32 then Wav2MelModule native16000",
+      "role": "monophonic frame F0 only; no onset or note detector",
+      "sample_rate": 16000,
+      "target_length_interpolation": false,
+      "terminal_frame": "Wav2MelModule may append duplicate last mel frame to input_samples//160+1; retain raw count and grid timestamp for appended frame; no output interpolation",
+      "test_time_augmentation": false
+    }
+  },
+  "protocol_id": "stem2tab-fcpe-synthetic-v2",
+  "schema_version": 2,
+  "scope": "Private synthetic diagnostic; no real-audio or general transcription accuracy claim.",
+  "seed": 20261025,
+  "source_identity": [
+    {
+      "path": "vendor/FCPE/torchfcpe/__init__.py",
+      "sha256": "49aa0c039abb2343a5d8eb82d53f5564360f93d82acf11dd4f857d63b4763978"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/f02midi/MIDI.py",
+      "sha256": "f27bb85913b54ab2e71e032c581d788d759b872bcd48dc8779b5ebc7dffdd7ee"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/f02midi/featureExtraction.py",
+      "sha256": "dd0e6592458b07a9b8302431442e92bc028d6564966e804b9b3dd4ee46abb23e"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/f02midi/quantization.py",
+      "sha256": "e9cb897ce841a4e08ade0dd1858030bb537c149510992f67f9473d0c162719f1"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/f02midi/transpose.py",
+      "sha256": "08128739aa3f7f59637bf07f20b3f1774e8ff760d850d4c2397023364eaceae3"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/f02midi/utils.py",
+      "sha256": "757570da92a1419da7a4db61b98f8c1ad890341dd2545215eba89a4b5c12927a"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/mel_extractor.py",
+      "sha256": "bc68b0f9636b201405081208b727abc3c57598f19a53e8b897b9fc8927ba8cf9"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/mel_fn_librosa.py",
+      "sha256": "1dcb6debf6feaa1c77e7a2e506065c4805a422eedb292a66e91f402829749803"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/model_conformer_naive.py",
+      "sha256": "d212bec643ba5985827888473ec2f6f2ac1817f942d89c9934333187128950b8"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/model_convnext.py",
+      "sha256": "6783699ad17a3863d49267b1663ca57d19f25735b7e8d280dd3feb8f4e38e98d"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/models.py",
+      "sha256": "4b5bfdfbfa513986c1ca2b18d2bbb5b6cc70e13cd1ca6a4339fa4cc0ea9b342a"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/models_infer.py",
+      "sha256": "c0a348a81d8d5595aafa876ac6dca57dbecea24ab10be158e57cf7f3cc5eee9b"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/tools.py",
+      "sha256": "8720dfd8ab158455ebd036393ea2c3d2ed13d788b1f81c2511dbd1c62bc262af"
+    },
+    {
+      "path": "vendor/FCPE/torchfcpe/torch_interp.py",
+      "sha256": "766461b0726ec6f1b47ad55f1e2d4871921ba225058bcfb5d67a2c5544267b84"
+    },
+    {
+      "path": "vendor/FCPE/setup.py",
+      "sha256": "09ea6952d91e1a172cdbec1f3b5a25a83ad31a9305e5ddf1f8e37f6975c2df27"
+    },
+    {
+      "path": "models/DDSP_200k.pt",
+      "sha256": "8544427eebbf2baef6213cc9a05057e46961617a8e5bd96975a0d42da6a09059"
+    },
+    {
+      "path": "/workspace/Stem2Tab/backend/.venv/lib/python3.11/site-packages/basic_pitch/inference.py",
+      "sha256": "b2dd343a318b85ee91c6d660eae2f48d7e39a8678d82575ab606c1c3617a6269"
+    },
+    {
+      "path": "/workspace/Stem2Tab/backend/.venv/lib/python3.11/site-packages/basic_pitch/note_creation.py",
+      "sha256": "9c813509acf57ed9b902d2b9fcd9f8118b2c5ffe568a06df9cfa60f5c5ee2572"
+    },
+    {
+      "path": "/workspace/Stem2Tab/backend/.venv/lib/python3.11/site-packages/basic_pitch/constants.py",
+      "sha256": "3374330dbf374cc4ba3d76eba6aad06e089a40252c4c68b3bf93510bd7b37214"
+    },
+    {
+      "path": "/workspace/Stem2Tab/backend/.venv/lib/python3.11/site-packages/basic_pitch/saved_models/icassp_2022/nmp.onnx",
+      "sha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec"
+    }
+  ],
+  "synthesis": {
+    "attack_s": 0.005,
+    "leading_trailing_silence_s": 0.2,
+    "noise": "PCG64 standard Gaussian; SNR against clean RMS on active samples; added across whole clip",
+    "partials": "sine:1; plucked:1..8; missing_fundamental:2..8; amplitude1/h",
+    "per_event_rms": 0.12,
+    "plucked_envelope": "0.25+0.75*exp(-t/0.09)",
+    "pure_noise_rms": 0.12,
+    "release_s": 0.01
+  },
+  "total_audio_s": 62.70004535147389
+}
