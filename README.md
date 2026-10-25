@@ -208,6 +208,23 @@ uv run python -m src.evaluation.benchmark \
 uv run python -m http.server 8765
 ```
 
+### CPU pYINの評価（任意）
+
+評価CLIに `pyin_raw`（F0の連続同音高区間）と `pyin`（活動量・onsetを使う音符組立）を
+追加しています。既定の `basic_pitch` とWeb workerの方式は変更していません。
+
+```bash
+cd backend
+uv run python -m src.evaluation.benchmark --audio /path/to/bass.wav \
+  --transcribers basic_pitch,pyin_raw,pyin
+```
+
+pYINは既存librosaをCPUで実行し、追加モデルを取得しません。生F0・voicing・onset等を
+`pyin_frames.npz`、未処理ノートを `raw.mid` / `raw_events.json` / CSVへ保存します。
+`pyin` では別に `assembled.mid` を保存し、共通のPerformance MIDIや評価指標は組立後のノートから作成します。
+合成音による開発条件と未使用検証条件の再現手順・結果・制約は
+[pYIN音符組立の評価](docs/evaluation/PYIN_ASSEMBLY.md)を参照してください。
+
 ### テスト
 
 MIDI→GP5/MusicXMLの記譜変換は、実音の標準ベースチューニング（4弦E1=MIDI 28、
