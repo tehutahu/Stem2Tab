@@ -1,0 +1,535 @@
+{
+  "basic_pitch_default_event_counts": {
+    "onset_offset_tp": 14,
+    "onset_tp": 36,
+    "predicted_count": 90,
+    "reference_count": 76
+  },
+  "basic_pitch_full_active_bin_counts": {
+    "additive_noise": {
+      "correct_active_bins": 875,
+      "gt_active_bins": 900,
+      "predicted_active_bins": 968
+    },
+    "missing_fundamental": {
+      "correct_active_bins": 286,
+      "gt_active_bins": 500,
+      "predicted_active_bins": 1764
+    },
+    "overall": {
+      "correct_active_bins": 2954,
+      "gt_active_bins": 3488,
+      "predicted_active_bins": 6373
+    },
+    "pure_noise": {
+      "correct_active_bins": 0,
+      "gt_active_bins": 0,
+      "predicted_active_bins": 42
+    },
+    "repeated": {
+      "correct_active_bins": 310,
+      "gt_active_bins": 384,
+      "predicted_active_bins": 613
+    },
+    "short": {
+      "correct_active_bins": 90,
+      "gt_active_bins": 204,
+      "predicted_active_bins": 414
+    },
+    "silence": {
+      "correct_active_bins": 0,
+      "gt_active_bins": 0,
+      "predicted_active_bins": 0
+    },
+    "sustained": {
+      "correct_active_bins": 1393,
+      "gt_active_bins": 1500,
+      "predicted_active_bins": 2572
+    }
+  },
+  "category_counts": {
+    "additive_noise": {
+      "basic_pitch": {
+        "false_voiced": 72,
+        "frames": 1260,
+        "gt_voiced": 900,
+        "pitch_tp": 875,
+        "pred_voiced": 947,
+        "uncovered_frames": 9,
+        "unvoiced_frames": 360,
+        "voice_tp": 875
+      },
+      "fcpe": {
+        "false_voiced": 52,
+        "frames": 1260,
+        "gt_voiced": 900,
+        "pitch_tp": 302,
+        "pred_voiced": 568,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 360,
+        "voice_tp": 516
+      }
+    },
+    "missing_fundamental": {
+      "basic_pitch": {
+        "false_voiced": 6,
+        "frames": 700,
+        "gt_voiced": 500,
+        "pitch_tp": 110,
+        "pred_voiced": 485,
+        "uncovered_frames": 5,
+        "unvoiced_frames": 200,
+        "voice_tp": 479
+      },
+      "fcpe": {
+        "false_voiced": 12,
+        "frames": 700,
+        "gt_voiced": 500,
+        "pitch_tp": 415,
+        "pred_voiced": 512,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 200,
+        "voice_tp": 500
+      }
+    },
+    "pure_noise": {
+      "basic_pitch": {
+        "false_voiced": 41,
+        "frames": 600,
+        "gt_voiced": 0,
+        "pitch_tp": 0,
+        "pred_voiced": 41,
+        "uncovered_frames": 3,
+        "unvoiced_frames": 600,
+        "voice_tp": 0
+      },
+      "fcpe": {
+        "false_voiced": 570,
+        "frames": 600,
+        "gt_voiced": 0,
+        "pitch_tp": 0,
+        "pred_voiced": 570,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 600,
+        "voice_tp": 0
+      }
+    },
+    "repeated": {
+      "basic_pitch": {
+        "false_voiced": 157,
+        "frames": 806,
+        "gt_voiced": 384,
+        "pitch_tp": 291,
+        "pred_voiced": 514,
+        "uncovered_frames": 12,
+        "unvoiced_frames": 422,
+        "voice_tp": 357
+      },
+      "fcpe": {
+        "false_voiced": 121,
+        "frames": 806,
+        "gt_voiced": 384,
+        "pitch_tp": 192,
+        "pred_voiced": 504,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 422,
+        "voice_tp": 383
+      }
+    },
+    "short": {
+      "basic_pitch": {
+        "false_voiced": 159,
+        "frames": 804,
+        "gt_voiced": 204,
+        "pitch_tp": 89,
+        "pred_voiced": 291,
+        "uncovered_frames": 12,
+        "unvoiced_frames": 600,
+        "voice_tp": 132
+      },
+      "fcpe": {
+        "false_voiced": 20,
+        "frames": 804,
+        "gt_voiced": 204,
+        "pitch_tp": 31,
+        "pred_voiced": 100,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 600,
+        "voice_tp": 80
+      }
+    },
+    "silence": {
+      "basic_pitch": {
+        "false_voiced": 0,
+        "frames": 200,
+        "gt_voiced": 0,
+        "pitch_tp": 0,
+        "pred_voiced": 0,
+        "uncovered_frames": 1,
+        "unvoiced_frames": 200,
+        "voice_tp": 0
+      },
+      "fcpe": {
+        "false_voiced": 0,
+        "frames": 200,
+        "gt_voiced": 0,
+        "pitch_tp": 0,
+        "pred_voiced": 0,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 200,
+        "voice_tp": 0
+      }
+    },
+    "sustained": {
+      "basic_pitch": {
+        "false_voiced": 51,
+        "frames": 1900,
+        "gt_voiced": 1500,
+        "pitch_tp": 1379,
+        "pred_voiced": 1447,
+        "uncovered_frames": 15,
+        "unvoiced_frames": 400,
+        "voice_tp": 1396
+      },
+      "fcpe": {
+        "false_voiced": 18,
+        "frames": 1900,
+        "gt_voiced": 1500,
+        "pitch_tp": 646,
+        "pred_voiced": 945,
+        "uncovered_frames": 0,
+        "unvoiced_frames": 400,
+        "voice_tp": 927
+      }
+    }
+  },
+  "decision": "reject_fcpe_current_configuration_stop_exploration",
+  "decision_gates": {
+    "pitch_f1_gt_basic_pitch_raw": false,
+    "pure_noise_false_voiced_le5percent": false,
+    "rescue_ge20percent": true,
+    "silence_false_voiced_le5percent": true
+  },
+  "evaluation_purpose": "Noncommercial personal synthetic evaluation; no weight redistribution.",
+  "fixture_summary": {
+    "audio_s": 62.70004535147389,
+    "clips": 46,
+    "labeled_events": 76,
+    "seed": 20261025
+  },
+  "identities": {
+    "basic_pitch_onnx": {
+      "name": "nmp.onnx",
+      "sha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec"
+    },
+    "checkpoint": {
+      "bytes": 43362881,
+      "license": "CC BY-NC-SA 4.0",
+      "name": "DDSP_200k.pt",
+      "sha256": "8544427eebbf2baef6213cc9a05057e46961617a8e5bd96975a0d42da6a09059",
+      "source_revision": "aeec888cd3eecd9a350945205a86340ef9293548",
+      "source_url": "https://huggingface.co/ChiTu/FCPE/resolve/aeec888cd3eecd9a350945205a86340ef9293548/DDSP_200k.pt"
+    },
+    "fcpe_code_license": "MIT",
+    "fcpe_source_commit": "6a149c1afb1c7e7821b71869dfb31ad50c95b516",
+    "fcpe_source_repo": "https://github.com/CNChTu/FCPE",
+    "original_analysis_sha256": "81eacd15e311dcf6e1cef3ebe336ada7e34727b03245b23d20a0f36021d71ea3",
+    "original_harness_sha256": {
+      "__init__.py": "ac175a4bf57a0af9b07649f149ca46bfb09c00d9335d99e5a16cf3d38da4ee3c",
+      "analyze.py": "04a7a783f11dd7d36a382e78c7bde2ea21314ccf4b86697f2aba063e55b6cf8b",
+      "generate.py": "97310fea539690c4b8cf1614745a61904b21258aa5561543e2e269b8018ef3de",
+      "run.py": "6273b39c2e1647b9ba7ccb3abaf217dd58664a388a1eafea6eb66733f9e301a3"
+    },
+    "stem2tab_base_commit": "bb4bee7a0d996b8ae4e11b9e5d9ff660464f0b2b"
+  },
+  "observed_original_checks": {
+    "backend_baseline_seconds": 5.09,
+    "backend_baseline_tests_passed": 100,
+    "backend_baseline_warnings": 4,
+    "evaluation_unit_tests_passed": 66,
+    "offline_semantic_tests_passed": 6,
+    "scope": "Historical observed checks; current change validates public JSON, report recomputation and links only."
+  },
+  "overall_counts": {
+    "basic_pitch": {
+      "false_voiced": 486,
+      "frames": 6270,
+      "gt_voiced": 3488,
+      "pitch_tp": 2744,
+      "pred_voiced": 3725,
+      "uncovered_frames": 57,
+      "unvoiced_frames": 2782,
+      "voice_tp": 3239
+    },
+    "fcpe": {
+      "false_voiced": 793,
+      "frames": 6270,
+      "gt_voiced": 3488,
+      "pitch_tp": 1586,
+      "pred_voiced": 3199,
+      "uncovered_frames": 0,
+      "unvoiced_frames": 2782,
+      "voice_tp": 2406
+    }
+  },
+  "overall_diagnostics": {
+    "basic_pitch": {
+      "boundary_latency": {
+        "events_with_correct_frame": 58,
+        "interpretation": "Frame continuity observation; not onset-detection accuracy.",
+        "median_first_correct_frame_latency_s": 0.004999999999999949,
+        "reference_events": 76
+      },
+      "pitch_errors": {
+        "jointly_voiced_frames": 3239,
+        "median_absolute_cents": 0.0,
+        "octave_error_fraction": 0.08428527323247915,
+        "octave_error_frames": 273
+      }
+    },
+    "fcpe": {
+      "boundary_latency": {
+        "events_with_correct_frame": 33,
+        "interpretation": "Frame continuity observation; not onset-detection accuracy.",
+        "median_first_correct_frame_latency_s": 0.004999999999999949,
+        "reference_events": 76
+      },
+      "pitch_errors": {
+        "jointly_voiced_frames": 2406,
+        "median_absolute_cents": 24.53267954554454,
+        "octave_error_fraction": 0.0029093931837073984,
+        "octave_error_frames": 7
+      }
+    }
+  },
+  "promising_frame_candidate": false,
+  "protocol_frozen_at_utc": "2026-10-25T07:36:58.785023+00:00",
+  "protocol_sha256": "57c53ebffbc1eb637db13b9c4ac286d30b1bff3972efa84645a024ae1069044e",
+  "publication_scope": "Protocol and non-private aggregate counts/resources only. Original isolated harness, raw arrays, model weights and audio remain local; no portable inference runner is published.",
+  "recovery": {
+    "eligible_low_bp_frames": 534,
+    "fraction_of_gt_voiced_frames": 0.0625,
+    "fraction_of_low_bp_frames": 0.40823970037453183,
+    "gt_voiced_frames": 3488,
+    "rescued_frames": 218
+  },
+  "recovery_by_category": {
+    "additive_noise": {
+      "eligible_low_bp_frames": 25,
+      "gt_voiced_frames": 900,
+      "rescued_frames": 0
+    },
+    "missing_fundamental": {
+      "eligible_low_bp_frames": 214,
+      "gt_voiced_frames": 500,
+      "rescued_frames": 172
+    },
+    "pure_noise": {
+      "eligible_low_bp_frames": 0,
+      "gt_voiced_frames": 0,
+      "rescued_frames": 0
+    },
+    "repeated": {
+      "eligible_low_bp_frames": 74,
+      "gt_voiced_frames": 384,
+      "rescued_frames": 37
+    },
+    "short": {
+      "eligible_low_bp_frames": 114,
+      "gt_voiced_frames": 204,
+      "rescued_frames": 0
+    },
+    "silence": {
+      "eligible_low_bp_frames": 0,
+      "gt_voiced_frames": 0,
+      "rescued_frames": 0
+    },
+    "sustained": {
+      "eligible_low_bp_frames": 107,
+      "gt_voiced_frames": 1500,
+      "rescued_frames": 9
+    }
+  },
+  "resources": {
+    "basic_pitch": {
+      "active_worker": {
+        "cpu_s": 7.76463,
+        "process_peak_rss_kib": 226584,
+        "wall_s": 3.0132420439999805
+      },
+      "all_46_clips": {
+        "cpu_s": 4.450657000000003,
+        "wall_s": 1.879509836000011
+      },
+      "first_inference": {
+        "audio_s": 0.68,
+        "clip_id": "short_sine_40ms",
+        "components": {
+          "default_event_decoding": {
+            "cpu_s": 0.0008060000000000844,
+            "process_peak_rss_kib": 214064,
+            "wall_s": 0.0008080949999680342
+          },
+          "raw_inference": {
+            "cpu_s": 0.5539670000000001,
+            "process_peak_rss_kib": 213808,
+            "wall_s": 0.9140748109999777
+          }
+        },
+        "cpu_s": 0.5548930000000003,
+        "first_inference": true,
+        "native_frame_count": 58,
+        "process_peak_rss_kib": 214064,
+        "real_time_factor": 1.3455789161764975,
+        "wall_s": 0.9149936630000184
+      },
+      "imports": {
+        "cpu_s": 0.8402019999999999,
+        "process_peak_rss_kib": 139056,
+        "wall_s": 0.4905144109999924
+      },
+      "model_load": {
+        "cpu_s": 0.12169399999999997,
+        "process_peak_rss_kib": 146352,
+        "wall_s": 0.03212125600003901
+      },
+      "subprocess_wall_s": 3.3616681559999506,
+      "warm": [
+        {
+          "audio_s": 2.4,
+          "clip_id": "sustain_E1_2s",
+          "components": {
+            "default_event_decoding": {
+              "cpu_s": 0.0014409999999998035,
+              "process_peak_rss_kib": 226584,
+              "wall_s": 0.0014416580000329304
+            },
+            "raw_inference": {
+              "cpu_s": 0.1588269999999996,
+              "process_peak_rss_kib": 226456,
+              "wall_s": 0.03885694800004558
+            }
+          },
+          "cpu_s": 0.16039699999999968,
+          "native_frame_count": 206,
+          "process_peak_rss_kib": 226584,
+          "real_time_factor": 0.01684152833332083,
+          "repeat": 1,
+          "wall_s": 0.04041966799996999
+        },
+        {
+          "audio_s": 2.4,
+          "clip_id": "sustain_E1_2s",
+          "components": {
+            "default_event_decoding": {
+              "cpu_s": 0.016447999999998686,
+              "process_peak_rss_kib": 226584,
+              "wall_s": 0.0044602259999919625
+            },
+            "raw_inference": {
+              "cpu_s": 0.17201299999999975,
+              "process_peak_rss_kib": 226584,
+              "wall_s": 0.041595997000001717
+            }
+          },
+          "cpu_s": 0.18859399999999837,
+          "native_frame_count": 206,
+          "process_peak_rss_kib": 226584,
+          "real_time_factor": 0.01924139125002,
+          "repeat": 2,
+          "wall_s": 0.046179339000048
+        }
+      ]
+    },
+    "fcpe": {
+      "active_worker": {
+        "cpu_s": 10.076327,
+        "process_peak_rss_kib": 751212,
+        "wall_s": 4.7660939059999805
+      },
+      "all_46_clips": {
+        "cpu_s": 5.0842630000000035,
+        "wall_s": 1.6979717020000749
+      },
+      "first_inference": {
+        "audio_s": 0.68,
+        "clip_id": "short_sine_40ms",
+        "components": {},
+        "cpu_s": 0.6544249999999998,
+        "first_inference": true,
+        "native_frame_count": 69,
+        "process_peak_rss_kib": 741032,
+        "real_time_factor": 0.789742776470515,
+        "wall_s": 0.5370250879999503
+      },
+      "imports": {
+        "cpu_s": 2.879735,
+        "process_peak_rss_kib": 628168,
+        "wall_s": 2.495416459000012
+      },
+      "model_load": {
+        "cpu_s": 0.34798600000000013,
+        "process_peak_rss_kib": 713416,
+        "wall_s": 0.1312995600000022
+      },
+      "subprocess_wall_s": 5.779070079999997,
+      "warm": [
+        {
+          "audio_s": 2.4,
+          "clip_id": "sustain_E1_2s",
+          "components": {},
+          "cpu_s": 0.13183899999999937,
+          "native_frame_count": 241,
+          "process_peak_rss_kib": 751084,
+          "real_time_factor": 0.014828438333320076,
+          "repeat": 1,
+          "wall_s": 0.03558825199996818
+        },
+        {
+          "audio_s": 2.4,
+          "clip_id": "sustain_E1_2s",
+          "components": {},
+          "cpu_s": 0.14978200000000008,
+          "native_frame_count": 241,
+          "process_peak_rss_kib": 751212,
+          "real_time_factor": 0.016136705833342074,
+          "repeat": 2,
+          "wall_s": 0.038728094000020974
+        }
+      ]
+    },
+    "timing_scope": "Audio reading/resampling/preprocessing + model + decoding, excluding prediction serialization; FCPE decodes F0 only, BP includes note/onset/pitch-bend/MIDI object decoding. BP sub-timings separate raw inference and default-event decoding; model load includes small config JSON write. Imports exclude NumPy already imported by harness.generate; active_worker excludes Python startup and verification; parent subprocess_wall_s includes both."
+  },
+  "run_completed_at_utc": "2026-10-25T07:38:33.301363+00:00",
+  "run_started_at_utc": "2026-10-25T07:38:24.152819+00:00",
+  "run_status": "complete",
+  "runtime": {
+    "base_additional_versions": {
+      "einops": "0.8.1",
+      "pretty_midi": "0.2.11",
+      "torchaudio": "2.9.1"
+    },
+    "cpu_quota_cores": 4,
+    "device": "cpu",
+    "memory_limit_bytes": 17179869184,
+    "observed_package_versions": {
+      "basic-pitch": "0.4.0",
+      "hyper-connections": "0.1.8",
+      "librosa": "0.11.0",
+      "local-attention": "1.11.2",
+      "numpy": "1.26.4",
+      "onnxruntime": "1.23.2",
+      "pydub": "0.25.1",
+      "soundfile": "0.13.1",
+      "torch": "2.9.1"
+    },
+    "python": "3.11.17",
+    "thread_policy": {
+      "inter_op": 1,
+      "intra_op": 4,
+      "onnx_execution": "sequential"
+    }
+  },
+  "schema_version": 1,
+  "synthetic_only": true
+}

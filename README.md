@@ -121,6 +121,7 @@ open http://localhost:5173
 | [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | 実装計画、依存関係、環境変数 |
 | [DEPENDENCIES.md](docs/DEPENDENCIES.md) | 外部ライブラリ、モデル管理、互換性 |
 | [TESTING.md](docs/TESTING.md) | テスト戦略、CI/CD |
+| [FCPE_SYNTHETIC_EVALUATION.md](docs/FCPE_SYNTHETIC_EVALUATION.md) | FCPE 固定合成比較の不採用記録、公開集計と再計算 |
 | [DEMO_MODE.md](docs/DEMO_MODE.md) | 演奏デモモード機能仕様 |
 | [TECH_RESEARCH.md](docs/TECH_RESEARCH.md) | 技術スタック調査レポート |
 | [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | **Docker Compose, Dockerfile, 環境変数** |
