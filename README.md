@@ -247,3 +247,5 @@ MIT License
 - [AlphaTab Documentation](https://alphatab.net/docs/introduction/)
 - [Docker GPU Support](https://docs.docker.com/compose/how-tos/gpu-support/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+Optional CPU-only, already-PR8 frozen C JSON comparison: [guide](docs/FROZEN_C_COMPARISON.md).

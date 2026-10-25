@@ -395,3 +395,5 @@ make test-backend
 # frontend テスト＋ビルド
 make test-frontend
 ```
+
+Optional CPU-only, already-PR8 frozen C JSON comparison: [guide](FROZEN_C_COMPARISON.md); run `cd backend && uv run --no-sync pytest -q tests/unit/test_evaluation_frozen_c.py` and all evaluation unit modules.
