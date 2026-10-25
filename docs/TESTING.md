@@ -272,6 +272,14 @@ uv run python -m src.evaluation.benchmark \
 正解MIDIを指定した場合だけ、onset/onset+offsetは `mir_eval`、frame F1、extra/missed、
 duration MAE、±12半音のoctave errorは共通ノートイベントから算出します。
 
+`average_overlap_ratio` は同じonset/pitchの1対1対応について、時間の重複長を
+最早onsetから最遅offsetまでの長さで割った値の平均です。短音はonset許容内でも
+時間的に重ならない場合があり、そのペアは0として平均に残します。平均全体を0へ
+丸めたり、非重複ペアを除外したりはしません。対応なしは0です。これは従来の
+負の重複長を修正するため、非重複ペアと重複ペアが混在する既存の成功結果でも
+この指標だけが増える場合があります。onset/onset+offsetの対応条件、F1、
+extra/missed、frame、octave、duration MAEの定義は変わりません。
+
 ```bash
 uv run python -m src.evaluation.benchmark \
   --audio /path/to/song.wav \
