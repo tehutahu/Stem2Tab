@@ -40,6 +40,7 @@ def test_onset_outside_tolerance_is_extra_and_missed() -> None:
     assert metrics.extra_note_count == 1
     assert metrics.missed_note_count == 1
     assert metrics.duration_mae_ms is None
+    assert metrics.average_overlap_ratio == 0.0
 
 
 def test_offset_mismatch_preserves_onset_score() -> None:
@@ -87,6 +88,7 @@ def test_empty_estimate_returns_zero_scores_and_all_notes_missed() -> None:
     assert metrics.extra_note_count == 0
     assert metrics.missed_note_count == 1
     assert metrics.duration_mae_ms is None
+    assert metrics.average_overlap_ratio == 0.0
 
 
 def test_empty_reference_is_rejected() -> None:
@@ -97,3 +99,45 @@ def test_empty_reference_is_rejected() -> None:
             config=CONFIG,
             runtime_seconds=0.0,
         )
+
+
+@pytest.mark.parametrize("reference_start,estimated_start", [(0.0, 0.03), (0.0, 0.04), (0.04, 0.0)])
+def test_onset_matched_touching_or_disjoint_notes_have_zero_overlap(
+    reference_start: float,
+    estimated_start: float,
+) -> None:
+    reference = _events(NoteEvent(start=reference_start, end=reference_start + 0.03, midi=40))
+    estimated = _events(NoteEvent(start=estimated_start, end=estimated_start + 0.03, midi=40))
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == 0.0
+    assert metrics.onset_f1 == 1.0
+    assert metrics.onset_offset_f1 == 1.0
+    assert metrics.extra_note_count == metrics.missed_note_count == 0
+
+
+def test_partial_overlap_keeps_intersection_over_span() -> None:
+    reference = _events(NoteEvent(start=0.0, end=0.08, midi=40))
+    estimated = _events(NoteEvent(start=0.03, end=0.12, midi=40))
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == pytest.approx(0.05 / 0.12)
+
+
+def test_overlap_clamps_each_pair_before_averaging() -> None:
+    reference = _events(
+        NoteEvent(start=0.0, end=0.03, midi=40),
+        NoteEvent(start=1.0, end=1.5, midi=43),
+    )
+    estimated = _events(
+        NoteEvent(start=0.04, end=0.07, midi=40),
+        NoteEvent(start=1.0, end=1.5, midi=43),
+    )
+
+    metrics = evaluate_note_events(reference, estimated, config=CONFIG, runtime_seconds=0.0)
+
+    assert metrics.average_overlap_ratio == pytest.approx(0.5)
+    assert metrics.onset_f1 == metrics.onset_offset_f1 == 1.0
+    assert metrics.extra_note_count == metrics.missed_note_count == 0

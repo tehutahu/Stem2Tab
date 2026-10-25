@@ -332,3 +332,51 @@ def test_cli_auto_numbers_output_directory(
     assert len(generated) == 1
     assert generated[0].name.startswith("audio-")
     assert (generated[0] / "report.md").is_file()
+
+
+def test_cli_scores_disjoint_onset_match_without_failing(tmp_path: Path, monkeypatch) -> None:
+    class ShortNoteTranscriber(FakeTranscriber):
+        def run(
+            self,
+            audio_path: Path,
+            output_dir: Path,
+            *,
+            config: AdapterConfig,
+        ) -> TranscriptionResult:
+            del audio_path, config
+            events = NoteEventSet(notes=(NoteEvent(start=0.04, end=0.07, midi=40),))
+            return TranscriptionResult(
+                raw_midi_path=write_midi(events, output_dir / "raw.mid"),
+                events=events,
+                metadata={"backend": "short-note"},
+            )
+
+    monkeypatch.setitem(adapters.TRANSCRIBER_ADAPTERS, "short-note", ShortNoteTranscriber())
+    audio_path = tmp_path / "audio.wav"
+    audio_path.write_bytes(b"synthetic audio placeholder")
+    reference_path = write_midi(
+        NoteEventSet(notes=(NoteEvent(start=0.0, end=0.03, midi=40),)),
+        tmp_path / "reference.mid",
+    )
+    output_dir = tmp_path / "output"
+
+    exit_code = main(
+        [
+            "--audio", str(audio_path), "--reference", str(reference_path),
+            "--transcribers", "short-note", "--output-dir", str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    comparison = json.loads((output_dir / "comparison.json").read_text())
+    run = comparison["runs"][0]
+    assert run["status"] == "success"
+    assert run["metrics"]["average_overlap_ratio"] == 0.0
+    assert run["metrics"]["onset_f1"] == 1.0
+    assert run["metrics"]["extra_note_count"] == run["metrics"]["missed_note_count"] == 0
+    saved_metrics = json.loads((output_dir / "runs/direct__short-note/metrics.json").read_text())
+    assert saved_metrics["metrics"] == run["metrics"]
+    for artifact in ("performance.mid", "preview.wav"):
+        assert (output_dir / "runs/direct__short-note" / artifact).is_file()
+    for artifact in ("comparison.csv", "report.md", "report.html"):
+        assert (output_dir / artifact).is_file()

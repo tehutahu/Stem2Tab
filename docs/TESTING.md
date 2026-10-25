@@ -271,6 +271,10 @@ uv run python -m src.evaluation.benchmark \
 `--offset-min-tolerance-ms`、`--frame-hop-ms` で変更でき、manifestへ記録されます。
 正解MIDIを指定した場合だけ、onset/onset+offsetは `mir_eval`、frame F1、extra/missed、
 duration MAE、±12半音のoctave errorは共通ノートイベントから算出します。
+平均重なり率はonset/pitch一致ペアごとの非負の交差時間を、そのペアの最早onsetから最遅offsetまでの時間幅で割って平均します。
+短い音のonsetが許容範囲内でも音同士が離れている場合、重なりは0とし、一致判定や他の指標は変更しません。
+完全一致と非重複が混在する既存の成功runでも平均重なり率は変わり得ますが、許容値・一致判定・F1は変わりません。
+回帰テストは非重複・接触・完全一致との混在、およびCLIの成果物生成を合成fixtureで検証します。
 
 ```bash
 uv run python -m src.evaluation.benchmark \
