@@ -376,3 +376,145 @@ make test-backend
 # frontend テスト＋ビルド
 make test-frontend
 ```
+
+## GP5 container regression
+
+Run from `backend` with the existing environment:
+
+```bash
+python -B -m pytest tests/unit/test_tab.py -q -p no:cacheprovider
+```
+
+These tests synthesize temporary MIDI, invoke the GP5 converter, and parse the
+result with PyGuitarPro. They verify mapped pitch/order preservation, unchanged
+input MIDI hashes, one intended track/header, mapping boundaries, and rest-only
+containers. MusicXML writing is stubbed to isolate this GP5 regression.
+
+The fix only removes blank default Song/Track containers that previously caused
+the writer to omit the populated measure. It retains the existing tuning
+`[40,45,50,55]`, fret range `0..24`, playback program/velocity, and sequential
+quarter-note durations. It does not preserve performed rhythm, add bars or
+voices, correct bass tuning, change MusicXML, or establish transcription quality.
+Empty/single-onset tempo-estimation fallback behavior is also outside this fix;
+the empty-container test supplies a tempo explicitly.
+
+## Opt-in saved-MIDI bass output tests
+
+See [SAVED_MIDI_BASS_TRIAL.md](evaluation/SAVED_MIDI_BASS_TRIAL.md) for the
+explicit CLI, restrictions and complete relevant test command. Use only
+synthetic fixtures; retain original MIDI and unknown reference accuracy.
+
+## Opt-in saved-MIDI Web tests
+
+See [SAVED_MIDI_WEB_TRIAL.md](evaluation/SAVED_MIDI_WEB_TRIAL.md) for API bounds,
+artifact distinctions and the actual-browser gate. Add `tests/unit/test_midi_trials_api.py`
+to the saved-MIDI backend suite. Run `npm test -- --run` after frontend changes,
+then `npm run build` and `node node_modules/typescript/bin/tsc --noEmit`.
+Mocked player callbacks do not substitute for visible SVG/transport checks.
+Preserve separate evidence for input selection, note pitch/count, cursor/time,
+pause/stop/seek, blocked range and re-input cleanup; never infer musical accuracy
+from successful rendering. Private MIDI is not a committed test fixture.
+
+The saved-result route `/midi-trial/saved/<trial UUID>` must issue only a GET,
+validate the UUID and returned summary identity, reject malformed/error replies,
+and abort stale reads on navigation/unmount. Test the default import flow too.
+For cursor visibility, inspect the real browser: the saved-MIDI viewer alone
+supplies a red beat cursor and translucent blue bar highlight. Confirm position
+changes during playback and seek, and reset on stop; mocked DOM tests cannot
+establish visual visibility. Keep the user's original tab and file selection.
+
+## Opt-in local MuScriptor route checks
+
+Run `pytest tests/unit/test_muscriptor_trials_api.py tests/unit/test_muscriptor_worker.py`
+with the existing backend environment, plus the saved-MIDI/API and evaluation unit
+modules when changing shared conversion. Fixtures are generated synthetic data; heavy
+backends are mocked and tests require no downloaded models or private audio.
+Run `npm test` and `npm run build` after frontend changes. The existing TypeScript
+baseline errors must be reported separately from new errors.
+
+The route's functional real-clip check is documented in
+[MUSCRIPTOR_OPT_IN_TRIAL.md](evaluation/MUSCRIPTOR_OPT_IN_TRIAL.md). It must retain
+raw output, verify MIDI/XML event correspondence within their rounding bounds,
+check terminal failure/no-fallback/reentry, and distinguish backend integration from
+manual file-input testing. Never invent precision/recall/F1 for unverified RWC labels.
+
+## Optional constrained fingering and explicit rhythm
+
+See [BASS_NOTATION_TRIAL.md](evaluation/BASS_NOTATION_TRIAL.md). Run these new modules
+with the existing backend environment, then the existing evaluation, bass-output,
+MIDI/API and worker regression suites:
+
+```bash
+python -m pytest tests/unit/test_bass_fingering.py tests/unit/test_explicit_rhythm.py tests/unit/test_evaluation_bass_notation_trial.py -q
+```
+
+The 60 new tests cover string occupancy during original note intervals, open strings,
+bass4/bass5/custom tuning, range rejection without transposition, position/hand-span
+constraints, search caps, no partial GP5, explicit clock validation, short-note
+collapse, onset merging, overlap changes, rests, repeated pitches, bar-crossing ties,
+and exact MusicXML readback through an independent music21 parser. Original MIDI
+bytes and storage-clock MusicXML must remain preserved. The complete relevant suite
+passed 237 tests on NAJA (one existing FastAPI `on_event` deprecation warning).
+
+For a visual check, use a synthetic score with an explicit clock and the installed
+AlphaTab assets through the permitted browser tool. A rendered glyph or successful
+transport is not an auditory or transcription-quality verdict. Keep independent
+test/audit evidence separate from live browser file-selection coverage. No frontend
+application source changed in this stage; previous frontend results remain 42 tests
+and build passed, with 11 known pre-existing TypeScript errors, not a new clean tsc run.
+# Local listening and notation regression
+
+Raw clock guards also run `test_evaluation_midi_clock.py`: conductor/nonconductor
+tempo and meter changes, rejection before normalization/output, unchanged source
+bytes, duplicate clock declarations and legacy saved-source revalidation. API
+regressions require the specific `unsupported_midi_clock` refusal.
+
+Run `pytest tests/unit/test_evaluation_*.py` plus the existing bass/output/API
+regressions after these changes. New focused modules are
+`test_notation_trials_api.py` and `test_rhythmic_gp5.py`. They cover idempotency,
+unchanged source bytes, explicit deltas, unsupported clock fallback,4/5/6strings,
+short notes, rests, repeated attacks, staggered chords and barline ties.
+Frontend: `npm test -- --run`, `npm run build`, and `npx tsc --noEmit`.
+No lint script is currently configured. Existing typecheck failures are reported
+separately, never treated as successful type validation.
+
+Browser checks must include rapid source selection, loop/end boundaries,
+pause/stop/replay, invalid intervals, interrupted-result recovery, original versus
+derived labels, logical pitch/count, cursor and playback time. Synthetic explicit
+clock examples do not establish real-song tempo or transcription accuracy.
+See [local trial contract](evaluation/LOCAL_LISTENING_NOTATION_UI.md).
+
+The [original-time cursor/TAB regression](evaluation/score-cursor-tab.md) adds
+`frontend/src/test/scoreGeometry.test.ts` with real alphaTab parsing/rendering of
+synthetic XML. Browser playback must cover late second-bar rests, barline ties,
+the next system, seek/pause/stop/replay, and repeated TAB toggles. A constant
+tempo does not imply constant pixel velocity on non-proportional printed spacing.
+
+Notation-clock rebarring regression: `test_evaluation_notation_clock.py` reads
+synthetic XML back with exact rational arithmetic, covering ties, rests, bar
+boundaries, polyphony, repeated/one-tick notes, and original full-bar tail duration.
+API tests check repeated GETs leave all saved files unchanged, reject changed or
+incompatible sources, and never invoke models. `MidiTrial`/`MidiTrialViewer`
+tests distinguish the candidate from quantization and ignore stale player events.
+The real-song audit is local only, never a test fixture or accuracy reference.
+See [notation-clock contract](evaluation/notation-clock.md).
+
+Time-proportional view: `frontend/src/test/timeScore.test.tsx` uses synthetic
+MusicXML and the real alphaTab loader/player generator. It checks equal-time
+cursor distances, exact attack alignment, ties across rows, rests, short repeated
+notes, 4/5/6 strings and unchanged playback events. Meter changes, repeats and
+unverified ties must fail explicitly. Viewer tests cover disposal/stale callbacks
+when switching spacing. Browser checks measure DOM glyph/cursor coordinates,
+fixed-tempo beat intervals, row/bar crossings and seek/pause/stop/display changes.
+`spacing=time` explicitly selects this display; normal engraving remains default.
+
+The current time view reuses alphaTab 1.7.1 engraving instead of custom SVG glyphs.
+`libraryTimeLayout.test.ts` checks playback-time column placement, unchanged
+glyph/model data, unsupported layouts and measured note/TAB alignment guards.
+The former `timeNotation` code/tests remain historical, unused by the viewer.
+`playbackTransport.test.ts` injects delayed pause/stop/play/seek notifications,
+the SDK's automatic beat-start rewind, buffered samples, rapid newer intents,
+missing acknowledgements, natural completion and disposed players. Browser
+checks must compare the original engraving, every barline and bass clef, and
+measure pause stability, seek/replay/stop and equal-time cursor distances. A
+successful raw-time display is not a verified musical quantization or tempo.

@@ -1,5 +1,10 @@
 # Stem2Tab
 
+GP5 generation preserves the mapped note sequence in one Bass track without
+PyGuitarPro's blank default containers. This fixes missing GP5 notes; the current
+fixed tuning/range and sequential quarter-note timing remain limited. See the
+[focused regression procedure](docs/TESTING.md#gp5-container-regression).
+
 音源ファイルからベースラインを抽出し、修正可能なMIDIとTab譜（Guitar Pro / MusicXML）を生成するWebアプリケーション。
 
 ## 概要
@@ -240,3 +245,63 @@ MIT License
 - [AlphaTab Documentation](https://alphatab.net/docs/introduction/)
 - [Docker GPU Support](https://docs.docker.com/compose/how-tos/gpu-support/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+## Optional saved-MIDI bass output trial
+
+A separate local CLI preserves input MIDI and exact loaded event ticks, with
+explicit bass4/bass5/custom tuning and an optional quarter-note GP5 preview.
+It does not change worker/model defaults. See
+[the trial contract](docs/evaluation/SAVED_MIDI_BASS_TRIAL.md).
+
+An optional **保存MIDIインポート（実験）** Web route now connects this local
+saved-MIDI path to a separate MusicXML viewer. See the
+[Web trial contract and browser verification](docs/evaluation/SAVED_MIDI_WEB_TRIAL.md).
+It keeps model/job defaults unchanged; GP5 remains a quarter-note fingering preview.
+
+An existing trial can be viewed at `/midi-trial/saved/<trial UUID>` without
+selecting, uploading or converting the MIDI again. This read-only result view
+lets a separate tab verify playback while preserving an active import form.
+
+## Experimental local MuScriptor audio trial
+
+The optional `/muscriptor-trial` page accepts an explicitly selected, rights-confirmed
+local clip up to 10 seconds. It uses preinstalled local assets only, keeps the current
+Upload method as default, and reports unavailable assets or failures without fallback
+or downloads. See [the deployment and artifact contract](docs/evaluation/MUSCRIPTOR_OPT_IN_TRIAL.md).
+This integration is not an accuracy endorsement; MusicXML uses a storage clock and
+optional GP5 remains a quarter-note fingering preview.
+
+Saved MIDI can also be processed with the separate, opt-in
+[`bass_notation_trial` CLI](docs/evaluation/BASS_NOTATION_TRIAL.md). It adds constrained
+bass fingering and, only with an explicit musical clock, a separate quantized
+MusicXML derivative. Original MIDI/timing artifacts and app defaults stay intact.
+This bounded CLI is not yet a new control in the audio-trial Web form.
+# Local listening / explicit notation trial
+
+The optional saved-output comparison and notation UI is documented in
+[LOCAL_LISTENING_NOTATION_UI.md](docs/evaluation/LOCAL_LISTENING_NOTATION_UI.md).
+Unsupported raw MIDI tempo/meter changes are explicitly rejected before
+normalization, including clock events outside the conductor track.
+It preserves original MIDI/timing XML and requires explicit clock settings for
+quantized MusicXML/rhythmic GP5. It does not change the default transcription route.
+
+The saved-MIDI viewer also offers an explicit [original-time staff + TAB view](docs/evaluation/score-cursor-tab.md)
+using the saved bass tuning. Playback cursors follow absolute player time without
+overshooting note/rest columns. Originals and existing GP5 preview files stay intact.
+
+An explicit [notation-clock comparison](docs/evaluation/notation-clock.md) offers
+the original clock or a 2x tempo/2x duration derivative. It preserves absolute
+event times and playback speed without quantization. Meter/downbeat remain
+unverified inherited assumptions; the candidate is not a song-tempo estimate.
+
+The same local viewer offers an opt-in **time-proportional synchronization view**:
+the installed alphaTab 1.7.1 engine draws its original symbols, rests, ties,
+barlines and TAB on a 360 px/second axis, one bar per system. The former custom
+SVG symbols and added duration-ratio annotations are no longer used. Source
+MusicXML duration symbols remain unchanged; they are not an exact conventional
+notation of unquantized sub-beat timing. Normal engraving stays selectable.
+This local, guarded layout adapter changes positions only, not MIDI/MusicXML or
+playback events. SDK upgrades require the layout integration checks again.
+Playback commands use acknowledgement barriers: pause retains its exact display
+position instead of accepting the SDK's automatic beat-start rewind, and later
+stop/seek/replay intents supersede pending operations.

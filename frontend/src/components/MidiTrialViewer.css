@@ -1,0 +1,35 @@
+/* AlphaTab positions cursors; the host supplies their visible colors.
+   Scope these styles to the experimental saved-MIDI viewer. */
+.midi-trial-score {
+  background-color: #fff;
+}
+
+.midi-trial-score .at-cursor-bar {
+  background-color: rgba(37, 99, 235, 0.12);
+}
+
+.midi-trial-score .at-cursor-beat {
+  background-color: #b91c1c;
+}
+
+.midi-trial-score-frame { position: relative; overflow-x: auto; border: 1px solid #bbb; }
+.midi-trial-time-cursor {
+  position: absolute; top: 0; left: 0; width: 2px; background: #b91c1c;
+  pointer-events: none; z-index: 2; transition: none;
+}
+
+/* Keep the SDK's measured width/player alive; only its engraved display is hidden. */
+.midi-trial-score.is-time-hidden {
+  height: 0 !important; min-height: 0 !important; overflow: hidden;
+  visibility: hidden; pointer-events: none;
+}
+.time-score { display: block; flex: none; background: white; color: #111; }
+/* Reuse the player's registered local SMuFL font, read from its rendered glyphs. */
+.time-music-glyph { fill: #111; }
+
+/* Keep transport targets stationary while score rows scroll into view. */
+.midi-trial-controls {
+  position: sticky; top: 0; z-index: 5;
+  padding: 8px 0; background: #fff; border-bottom: 1px solid #ddd;
+}
+.midi-trial-controls p { margin: 6px 0 0; }

@@ -12,6 +12,10 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, statu
 from fastapi.responses import FileResponse
 
 from src.api.schemas import JobCreateResponse, JobStatus, JobStatusResponse
+from src.api.midi_trials import router as midi_trial_router
+from src.api.muscriptor_trials import router as muscriptor_trial_router
+from src.api.review_trials import router as listening_trial_router
+from src.api.notation_trials import router as notation_trial_router
 from src.core.config import settings
 from src.worker import tasks
 from src.worker.app import celery_app
@@ -37,6 +41,10 @@ MIME_MAP = {
 
 
 app = FastAPI(title="Stem2Tab API")
+app.include_router(midi_trial_router)
+app.include_router(muscriptor_trial_router)
+app.include_router(listening_trial_router)
+app.include_router(notation_trial_router)
 
 
 @app.get("/health")
