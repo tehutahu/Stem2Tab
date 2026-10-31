@@ -52,7 +52,9 @@ def midi_to_gp5(
         import pretty_midi  # type: ignore
         midi = pretty_midi.PrettyMIDI(str(midi_path))
         tempo = int(midi.estimate_tempo() or 120)
-        song = guitarpro.models.Song(tempo=tempo, tempoName="Bass")
+        # Own the containers explicitly: PyGuitarPro otherwise prepopulates a
+        # blank track/measure, which truncates writing before our note measure.
+        song = guitarpro.models.Song(tempo=tempo, tempoName="Bass", tracks=[], measureHeaders=[])
         time_signature = guitarpro.models.TimeSignature(
             numerator=4, denominator=guitarpro.models.Duration(value=4)
         )
@@ -60,7 +62,7 @@ def midi_to_gp5(
         song.measureHeaders.append(header)
 
         channel = guitarpro.models.MidiChannel(instrument=33)  # Fingered Bass
-        track = guitarpro.models.Track(song, name="Bass", channel=channel)
+        track = guitarpro.models.Track(song, name="Bass", channel=channel, measures=[])
         tuning = STANDARD_TUNINGS.get(strings, STANDARD_TUNINGS[4])
         track.strings = [
             guitarpro.models.GuitarString(number=idx + 1, value=pitch)
