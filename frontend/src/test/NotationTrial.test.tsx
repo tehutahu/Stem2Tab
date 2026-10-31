@@ -25,7 +25,7 @@ it("locks uncertain submission, recovers by GET, ignores repeat clicks",async()=
   fetcher.mockResolvedValueOnce({ok:true,json:async()=>({trial_id:pending,midi_trial_id:id,status:"failed",artifacts:[]})});
   fireEvent.click(screen.getByText("既存結果を確認（再実行なし）"));
   await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("failed"));
-  expect(fetcher.mock.calls[2][0]).toContain(pending);expect(fetcher.mock.calls[2][1]).toBeUndefined();
+  expect(fetcher.mock.calls[2][0]).toContain(pending);expect(fetcher.mock.calls[2][1].method).toBeUndefined();expect(fetcher.mock.calls[2][1].signal).toBeDefined();
 });
 it("rejects remote artifact URLs and source identity mismatch",()=>{
   expect(validResult({trial_id:id,midi_trial_id:id,status:"completed",artifacts:[{key:"original-midi",url:"https://example.invalid/file",sha256:"a".repeat(64)}]},id,id)).toBe(false);
@@ -49,4 +49,20 @@ it("ignores delayed source results after input changes",async()=>{
   complete({ok:true,json:async()=>source});
   await waitFor(()=>expect(screen.queryByText(/synthetic.mid/)).not.toBeInTheDocument());
   expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+});
+it("interrupts waiting without losing the request ID or accepting a late completion", async () => {
+  let complete!: (value: unknown) => void;
+  const fetcher = vi.fn().mockResolvedValueOnce({ok:true,json:async()=>source}).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; })); vi.stubGlobal("fetch", fetcher);
+  render(<NotationTrial midiTrialId={id} />); await screen.findByText(/synthetic.mid/);
+  fireEvent.change(screen.getByLabelText("弦設定"), { target: { value: "bass4" } }); fireEvent.click(screen.getByLabelText("前後の移動と同時音を考慮する運指"));
+  fireEvent.click(screen.getByText("選択した別版を作成"));
+  const pending = localStorage.getItem(`stem2tab-notation-v1:${id}`)!;
+  fireEvent.click(screen.getByRole("button", { name: /通信の待機を中断/ })); expect(fetcher.mock.calls[1][1].signal.aborted).toBe(true);
+  complete({ok:true,json:async()=>({trial_id:pending,midi_trial_id:id,status:"completed",artifacts:[]})});
+  await waitFor(() => expect(screen.getByRole("status")).not.toHaveTextContent("completed"));
+  expect(localStorage.getItem(`stem2tab-notation-v1:${id}`)).toBe(pending);
+  fetcher.mockResolvedValueOnce({ok:true,json:async()=>({trial_id:pending,midi_trial_id:id,status:"failed",artifacts:[]})});
+  fireEvent.click(screen.getByText("既存結果を確認（再実行なし）"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("failed"));
+  expect(fetcher).toHaveBeenCalledTimes(3); expect(fetcher.mock.calls[2][1].method).toBeUndefined();
 });

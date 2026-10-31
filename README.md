@@ -7,6 +7,10 @@ fixed tuning/range and sequential quarter-note timing remain limited. See the
 
 音源ファイルからベースラインを抽出し、修正可能なMIDIとTab譜（Guitar Pro / MusicXML）を生成するWebアプリケーション。
 
+通常の音声ジョブが完了したら「生成MIDIから原時刻の五線譜・TAB・任意補正へ」から進めます。
+元MIDIを保持し、必要なときだけ運指・明示量子化・リズムGP5の別版を選択します。
+[統合範囲とクラウド検証](docs/evaluation/CLOUD_INTEGRATION.md) を参照してください。
+
 ## 概要
 
 ```mermaid
@@ -268,6 +272,9 @@ The optional `/muscriptor-trial` page accepts an explicitly selected, rights-con
 local clip up to 10 seconds. It uses preinstalled local assets only, keeps the current
 Upload method as default, and reports unavailable assets or failures without fallback
 or downloads. See [the deployment and artifact contract](docs/evaluation/MUSCRIPTOR_OPT_IN_TRIAL.md).
+The worker retains the original token and event files and writes
+`decoder-integrity.json`. Backward chunk timestamps or nonpositive note lengths
+fail explicitly before MIDI export. No notes are dropped, reordered, or repaired.
 This integration is not an accuracy endorsement; MusicXML uses a storage clock and
 optional GP5 remains a quarter-note fingering preview.
 

@@ -4,7 +4,8 @@ import { isTrialSummary, MidiTrialSummary, pitchName } from "../utils/midiTrial"
 import { readBassTabConfig } from "../utils/bassTabConfig";
 const Viewer = lazy(() => import("../components/MidiTrialViewer"));
 
-export default function MidiTrial({ savedTrialId }: { savedTrialId?: string } = {}): JSX.Element {
+export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: string; jobSource?: { jobId: string; name: string } } = {}): JSX.Element {
+  const [sourceRead, setSourceRead] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [profile, setProfile] = useState("");
   const [source, setSource] = useState("");
@@ -48,8 +49,34 @@ export default function MidiTrial({ savedTrialId }: { savedTrialId?: string } = 
     })();
     return () => controller.abort();
   }, [savedTrialId]);
+  const jobId = jobSource?.jobId, jobName = jobSource?.name;
+  useEffect(() => {
+    if (jobId === undefined || jobName === undefined) return;
+    invalidate(); setFile(null); setSource("local-midi");
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(jobId) || !/^[^/\\]+\.midi?$/i.test(jobName)) {
+      setError("生成MIDIのジョブIDまたはファイル名が不正です。"); return;
+    }
+    const abort = new AbortController(); request.current = abort;
+    const gen = generation.current; setBusy(true);
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/jobs/${jobId}`, { signal: abort.signal });
+        const job = await response.json();
+        if (abort.signal.aborted || gen !== generation.current) return;
+        if (!response.ok || job.job_id !== jobId || job.status !== "SUCCESS" || !Array.isArray(job.files) || !job.files.includes(jobName)) throw new Error("完了したジョブのMIDIを確認できません。");
+        const midi = await fetch(`${API_BASE}/api/v1/files/${jobId}?name=${encodeURIComponent(jobName)}`, { signal: abort.signal });
+        if (!midi.ok) throw new Error(`生成MIDIを取得できません (HTTP ${midi.status})`);
+        const bytes = await midi.blob();
+        if (abort.signal.aborted || gen !== generation.current) return;
+        if (bytes.size > 2 * 1024 * 1024) throw new Error("MIDIは2 MiB以下にしてください。");
+        setFile(new File([bytes], jobName, { type: "audio/midi" }));
+      } catch (cause) { if (!abort.signal.aborted && gen === generation.current) setError(String(cause)); }
+      finally { if (gen === generation.current) { setBusy(false); request.current = null; } }
+    })();
+    return () => abort.abort();
+  }, [jobId, jobName, sourceRead]);
   const submit = async (event: FormEvent): Promise<void> => {
-    event.preventDefault(); invalidate();
+    event.preventDefault(); if (request.current) return; invalidate();
     if (!file || !/\.midi?$/i.test(file.name)) { setError(".mid または .midi ファイルを選択してください。"); return; }
     if (file.size > 2 * 1024 * 1024) { setError("MIDIは2 MiB以下にしてください。"); return; }
     if (!profile || !source) { setError("入力の由来と弦構成を明示選択してください。"); return; }
@@ -78,16 +105,19 @@ export default function MidiTrial({ savedTrialId }: { savedTrialId?: string } = 
     <h2>保存MIDIインポート（実験的ベース出力）</h2>
     <p>ローカルの保存MIDIを明示選択して試します。音源分離・新規推論は実行しません。入力をオクターブ移動せず保持します。上限: 2 MiB・2000音・600秒。複雑な保存クロックは処理を停止する場合があります。</p>
     {savedTrialId !== undefined && <p role="note">保存済み結果の閲覧です。再インポート・再推論は行いません。記譜テンポ候補は原版を保持して別に生成します。{busy && " 読込中…"}</p>}
-    {savedTrialId === undefined && <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
-      <label>保存MIDI <input type="file" accept=".mid,.midi" onChange={(e) => { invalidate(); setFile(e.target.files?.[0] ?? null); }} /></label>
-      <label>入力の由来 <select required value={source} onChange={(e) => { invalidate(); setSource(e.target.value); }}><option value="">選択してください</option><option value="muscriptor-small">Muscriptor small の保存MIDI</option><option value="local-midi">その他のローカルMIDI</option></select></label>
+    {jobSource && <p>通常採譜ジョブ {jobId} の生成MIDI: {file?.name ?? "読込待ち"}。採譜の正解は未確認です。弦設定を確認してインポートすると、元ファイルを保持したまま原時刻版から補正へ進めます。</p>}
+    {jobSource && !busy && !file && <button onClick={() => setSourceRead(value => value + 1)}>生成MIDIの読込を再試行</button>}
+    {busy && jobSource && !file && <button onClick={invalidate}>生成MIDIの読込を中断</button>}
+    {savedTrialId === undefined && <form onSubmit={submit} style={{ display: "grid", gap: 12 }}><fieldset disabled={!!jobSource && busy && !file} style={{ display: "grid", gap: 12, border: 0, padding: 0 }}>
+      <label>保存MIDI <input disabled={!!jobSource} type="file" accept=".mid,.midi" onChange={(e) => { invalidate(); setFile(e.target.files?.[0] ?? null); }} /></label>
+      <label>入力の由来 <select disabled={!!jobSource} required value={source} onChange={(e) => { invalidate(); setSource(e.target.value); }}><option value="">選択してください</option><option value="muscriptor-small">Muscriptor small の保存MIDI</option><option value="local-midi">その他のローカルMIDI</option></select></label>
       <label>弦構成 <select required value={profile} onChange={(e) => { invalidate(); setProfile(e.target.value); }}><option value="">選択してください</option><option value="bass4">4弦ベース E1–G2 / MIDI 28,33,38,43</option><option value="bass5">5弦ベース B0–G2 / MIDI 23,28,33,38,43</option><option value="custom">カスタム</option></select></label>
       {profile === "custom" && <><label>弦数 <input type="number" min={1} max={7} value={strings} onChange={(e) => { invalidate(); setStrings(e.target.value); }} /></label><label>開放弦MIDI（低音→高音、カンマ区切り） <input value={tuning} onChange={(e) => { invalidate(); setTuning(e.target.value); }} /></label></>}
       <label>最大フレット <input type="number" min={0} max={36} value={frets} onChange={(e) => { invalidate(); setFrets(e.target.value); }} /></label>
       <label><input type="checkbox" checked={gp5} onChange={(e) => { invalidate(); setGp5(e.target.checked); }} /> GP5運指プレビューも生成（四分音符のみ・リズム非保持）</label>
       {gp5 && <p role="note"><strong>GP5は運指確認専用です。元MIDIの時刻・長さ・リズムを保持しません。範囲外の音が1つでもあればGP5出力を停止します。</strong></p>}
       <button disabled={busy} type="submit">{busy ? "処理中…" : "この設定でインポート"}</button>
-    </form>}
+    </fieldset></form>}
     {error && <p role="alert">{error}</p>}
     {result && <section aria-label="インポート結果">
       <h3>結果: {result.status}</h3><p>試行ID: {result.trial_id}</p>

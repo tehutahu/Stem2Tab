@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 from types import SimpleNamespace
 
 import mido
@@ -203,6 +204,14 @@ def test_mu_requires_cuda_before_model_import(
     assert failure.value.code == "cuda_unavailable"
 
 
+def test_direct_worker_entrypoint_resolves_its_sibling_from_another_cwd(tmp_path: Path) -> None:
+    result = subprocess.run([sys.executable, str(Path(worker.__file__)), "--help"], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=20,
+                            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPATH": ""})
+    assert result.returncode == 0, result.stderr
+    assert "--stage" in result.stdout
+
+
 @dataclass
 class _Start:
     pitch: int
@@ -297,10 +306,43 @@ def test_raw_serializer_rejects_unpaired_and_does_not_filter_unexpected_program(
         worker._serialize_events([start], model, EVENT_TYPES)
 
 
-def test_literal_midi_boundary_zero_duration_and_empty_output(tmp_path: Path) -> None:
+@pytest.mark.parametrize("offset", [.2, .3])
+def test_invalid_decoded_timing_preserves_raw_artifacts_and_diagnostics(
+    manifest: worker.WorkerManifest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, offset: float,
+) -> None:
+    start = _Start(40, .3, 0, "electric_bass")
+    class Model:
+        _tokenizer = SimpleNamespace(_vocab=[SimpleNamespace(type="tie", value=0)])
+        def _program_for_instrument(self, name):
+            return 33
+        def _generate_token_stream(self):
+            yield _Boundary(0., None)
+            yield 0
+        def transcribe(self, audio, **kwargs):
+            yield _Progress(0, 1)
+            for _ in self._generate_token_stream():
+                pass
+            yield start
+            yield _End(offset, start)
+    model = Model()
+    tm = SimpleNamespace(TranscriptionModel=SimpleNamespace(load_model=lambda **kwargs: model))
+    fake_torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True, synchronize=lambda *args: None),
+                                from_numpy=lambda wave: wave, inference_mode=nullcontext)
+    monkeypatch.setattr(worker, "_muscriptor_components", lambda *args: (tm, EVENT_TYPES))
+    state = {"model_calls": 0}
+    with pytest.raises(worker.WorkerFailure) as failure:
+        worker._transcribe(manifest, np.zeros((1, 80), dtype=np.float32), 16000, tmp_path, fake_torch, state)
+    assert failure.value.code == "invalid_model_output"
+    assert json.loads((tmp_path / "notes.json").read_text())[0]["offset"] == offset
+    assert (tmp_path / "events.jsonl").exists() and (tmp_path / "tokens.jsonl").exists()
+    integrity = json.loads((tmp_path / "decoder-integrity.json").read_text())
+    assert integrity["status"] == "invalid" and integrity["notes_modified"] is False
+    assert state["times_seconds"]["inference"] >= 0 and not (tmp_path / "performance.mid").exists()
+
+
+def test_literal_midi_boundary_and_empty_output(tmp_path: Path) -> None:
     notes = [dict(index=0, program=32, onset=.1, offset=.6, pitch=40),
-             dict(index=1, program=32, onset=.6, offset=1., pitch=40),
-             dict(index=2, program=33, onset=.3, offset=.3, pitch=43)]
+             dict(index=1, program=32, onset=.6, offset=1., pitch=40)]
     worker._literal_midi(tmp_path / "notes.mid", notes)
     midi = mido.MidiFile(tmp_path / "notes.mid")
     tick, boundary = 0, []
@@ -309,9 +351,17 @@ def test_literal_midi_boundary_zero_duration_and_empty_output(tmp_path: Path) ->
         if tick == 6000:
             boundary.append(msg.type)
     assert boundary == ["note_off", "note_on"]
-    assert notes[2]["onset"] == notes[2]["offset"] == .3
     worker._literal_midi(tmp_path / "empty.mid", [])
     assert len(mido.MidiFile(tmp_path / "empty.mid").tracks) == 1
+
+
+@pytest.mark.parametrize("end", [.2, .3])
+def test_literal_midi_rejects_nonpositive_duration_without_writing(tmp_path: Path, end: float) -> None:
+    notes = [dict(index=0, program=33, onset=.3, offset=end, pitch=43)]
+    with pytest.raises(worker.WorkerFailure) as failure:
+        worker._literal_midi(tmp_path / "invalid.mid", notes)
+    assert failure.value.code == "invalid_model_output"
+    assert notes[0]["offset"] == end and not (tmp_path / "invalid.mid").exists()
 
 
 def test_offline_process_and_network_and_beat_guards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

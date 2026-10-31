@@ -425,7 +425,13 @@ establish visual visibility. Keep the user's original tab and file selection.
 
 ## Opt-in local MuScriptor route checks
 
-Run `pytest tests/unit/test_muscriptor_trials_api.py tests/unit/test_muscriptor_worker.py`
+Decoder regressions cover backward absolute shifts, nonpositive note lengths,
+raw artifact retention after failure, and direct worker-file execution from a
+different directory. The strict policy rejects malformed output without
+clamping timestamps, dropping notes, or retrying the model. Successful output
+keeps the original notes and literal MIDI serialization.
+
+Run `pytest tests/unit/test_muscriptor_trials_api.py tests/unit/test_muscriptor_worker.py tests/unit/test_muscriptor_decoder.py`
 with the existing backend environment, plus the saved-MIDI/API and evaluation unit
 modules when changing shared conversion. Fixtures are generated synthetic data; heavy
 backends are mocked and tests require no downloaded models or private audio.
@@ -518,3 +524,11 @@ missing acknowledgements, natural completion and disposed players. Browser
 checks must compare the original engraving, every barline and bass clef, and
 measure pause stability, seek/replay/stop and equal-time cursor distances. A
 successful raw-time display is not a verified musical quantization or tempo.
+
+## 通常導線と型チェックの追加回帰
+
+[クラウド統合検証](evaluation/CLOUD_INTEGRATION.md) に、通常ジョブの生成MIDI→原時刻版→
+任意補正の検証範囲と手順を記載しています。frontendでは `npm test -- --run`、
+`node node_modules/typescript/bin/tsc --noEmit`、`npm run build` を実行します。
+backendの `test_workflow_integration.py` は推論を模擬し、保存MIDIとGP5出力は実際の処理で確認します。
+通信待機の中断はサーバー処理の取消ではなく、保存IDで確認することをテストします。

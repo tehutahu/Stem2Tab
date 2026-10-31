@@ -24,6 +24,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
 
 sys.dont_write_bytecode = True
+if __package__:
+    from .muscriptor_decoder import inspect_decoder_integrity
+else:
+    from muscriptor_decoder import inspect_decoder_integrity
 SOURCE_COMMIT = "8a1ef88672cc23c26619adaff37ec48d82c0b906"
 MODEL_SHA256 = "bbd482c786b895cf7d8f44185073d951adae2ebb8a66f82ca84cd1f84569549c"
 CONFIG_SHA256 = "3008fc481e4a1cd978e337eb3759260c270892204db5039235ac939e1f42aeb2"
@@ -382,7 +386,7 @@ def _literal_midi(path: Path, notes: list[dict[str, Any]]) -> dict[str, Any]:
             if note["program"] != program:
                 continue
             a, b, pitch = note["onset"], note["offset"], note["pitch"]
-            if (not math.isfinite(a) or not math.isfinite(b) or not 0 <= a <= b or
+            if (not math.isfinite(a) or not math.isfinite(b) or not 0 <= a < b or
                     type(pitch) is not int or not 0 <= pitch <= 127):
                 raise WorkerFailure("invalid_model_output")
             messages.extend([(round(a * 10000), a, ordinal * 2, mido.Message("note_on", note=pitch, velocity=100, channel=channel)),
@@ -436,11 +440,19 @@ def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torc
         inference = time.perf_counter() - started
     finally:
         model._generate_token_stream = original
+        _jsonl(output / "tokens.jsonl", tokens)
+    state.setdefault("times_seconds", {}).update(initialization=initialization, preprocess=preprocess,
+                                                inference=inference)
     started = time.perf_counter()
     rows, notes = _serialize_events(events, model, event_types)
     _json(output / "notes.json", notes)
     _jsonl(output / "events.jsonl", rows)
-    _jsonl(output / "tokens.jsonl", tokens)
+    integrity = inspect_decoder_integrity(notes, tokens)
+    state["decoder_integrity"] = integrity.model_dump(mode="json")
+    state["decoder_code_sha256"] = _sha(Path(__file__).with_name("muscriptor_decoder.py"))
+    _json(output / "decoder-integrity.json", state["decoder_integrity"])
+    if integrity.status == "invalid":
+        raise WorkerFailure("invalid_model_output")
     serialization = time.perf_counter() - started
     started = time.perf_counter()
     midi = output / "performance.mid"

@@ -1,4 +1,4 @@
-import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ALPHATAB_SOUNDFONT, API_BASE } from "../config";
@@ -16,10 +16,16 @@ const AlphaTabViewer = lazy(() => import("../components/AlphaTabViewer"));
 
 function Upload(): JSX.Element {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uncertain, setUncertain] = useState(false);
+  const [lookup, setLookup] = useState("");
   const [jobId, setJobId] = useState<string | undefined>(undefined);
   const [submitState, setSubmitState] = useState<SubmitState>({ isSubmitting: false });
 
+  const request = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current++; request.current?.abort(); }, []);
   const polling = useJobPolling(jobId, 2000);
+  useEffect(() => { if (polling.data && ["SUCCESS", "FAILURE", "REVOKED"].includes(polling.data.status)) setUncertain(false); }, [polling.data]);
   const files = polling.data?.files ?? [];
 
   const statusLabel = useMemo(() => {
@@ -54,12 +60,15 @@ function Upload(): JSX.Element {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (request.current || uncertain) return;
+    if (!selectedFile) { setSubmitState({ isSubmitting: false, error: "Please choose an audio file." }); return; }
+    const controller = new AbortController(); request.current = controller;
+    const current = ++generation.current;
+    setJobId(undefined);
     setSubmitState({ isSubmitting: true, error: undefined });
 
+    let definiteRefusal = false;
     try {
-      if (!selectedFile) {
-        throw new Error("Please choose an audio file.");
-      }
 
       const formData = new FormData();
       formData.append("file", selectedFile);
@@ -69,23 +78,30 @@ function Upload(): JSX.Element {
       const response = await fetch(`${API_BASE}/api/v1/jobs`, {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
+        definiteRefusal = response.status >= 400 && response.status < 500;
         const detail = await response.text();
         throw new Error(`Failed to create job (${response.status}) ${detail}`.trim());
       }
 
       const json = (await response.json()) as JobStatus;
+      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(json.job_id)) throw new Error("Invalid job identifier in upload response");
+      if (current !== generation.current || controller.signal.aborted) return;
       setJobId(json.job_id);
     } catch (err) {
+      if (current !== generation.current || controller.signal.aborted) return;
+      setUncertain(!definiteRefusal);
       setSubmitState({
         isSubmitting: false,
         error: err instanceof Error ? err.message : "Unexpected error",
       });
       return;
-    }
+    } finally { if (current === generation.current) request.current = null; }
 
+    if (current !== generation.current) return;
     setSubmitState({ isSubmitting: false, error: undefined });
   };
 
@@ -98,13 +114,13 @@ function Upload(): JSX.Element {
             name="audio"
             type="file"
             accept="audio/*"
-            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => { generation.current++; request.current?.abort(); request.current = null; setJobId(undefined); setSelectedFile(event.target.files?.[0] ?? null); }}
             disabled={submitState.isSubmitting}
           />
         </label>
         <button
           type="submit"
-          disabled={submitState.isSubmitting || !selectedFile}
+          disabled={submitState.isSubmitting || !selectedFile || uncertain}
           style={{
             padding: "0.5rem 0.9rem",
             border: "1px solid #2563eb",
@@ -117,6 +133,16 @@ function Upload(): JSX.Element {
           Create job
         </button>
       </form>
+      {submitState.isSubmitting && <button onClick={() => {
+        generation.current++; request.current?.abort(); request.current = null; setUncertain(true);
+        setSubmitState({ isSubmitting: false, error: "通信の待機を中断しました。サーバー処理の取消は未対応です。二重実行を避けるため、結果不明時は新規送信せず保存されたジョブを確認してください。" });
+      }}>送信の待機を中断（処理取消ではありません）</button>}
+      {uncertain && <section aria-label="送信結果の確認"><p>送信結果が不明です。新しい送信を止めています。保存されたジョブIDが分かる場合は同じジョブを確認してください。</p><label>保存ジョブID <input value={lookup} onChange={e => setLookup(e.target.value)} /></label><button onClick={() => {
+        if (/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(lookup)) setJobId(lookup);
+      }}>保存ジョブを確認</button></section>}
+      <p>通常経路のGP5は四分音符のプレビューです。時刻を保持した表示や明示リズムGP5には、完了後の生成MIDIから進んでください。</p>
+      {polling.data?.status === "SUCCESS" && midi && <Link to={`/midi-trial/from-job/${polling.data.job_id}?name=${encodeURIComponent(midi)}`}>生成MIDIから原時刻の五線譜・TAB・任意補正へ</Link>}
+
 
       <div style={{ marginTop: "1rem" }}>
         <p>

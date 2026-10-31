@@ -151,3 +151,41 @@ it("validates file size and frets before sending", () => {
   fireEvent.change(screen.getByLabelText("保存MIDI"), { target: { files: [new File([new Uint8Array(2 * 1024 * 1024 + 1)], "large.mid")] } });
   fireEvent.submit(screen.getByRole("button", { name: "この設定でインポート" }).closest("form")!); expect(screen.getByRole("alert")).toHaveTextContent("2 MiB"); expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it("imports a completed normal-job MIDI only after explicit instrument selection", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ job_id: savedId, status: "SUCCESS", files: ["bass.mid"] }) })
+    .mockResolvedValueOnce({ ok: true, blob: async () => new Blob(["synthetic midi"]) })
+    .mockResolvedValueOnce({ ok: true, json: async () => summary });
+  vi.stubGlobal("fetch", fetcher);
+  render(<MidiTrial jobSource={{ jobId: savedId, name: "bass.mid" }} />);
+  await screen.findByText(/生成MIDI: bass.mid/);
+  expect(fetcher).toHaveBeenCalledTimes(2); // GET only; no inference or import yet
+  fireEvent.change(screen.getByLabelText("弦構成"), { target: { value: "bass4" } });
+  fireEvent.click(screen.getByRole("button", { name: "この設定でインポート" }));
+  await screen.findByText(/試行ID:/);
+  const form = fetcher.mock.calls[2][1].body as FormData;
+  expect((form.get("file") as File).name).toBe("bass.mid"); expect(form.get("source_kind")).toBe("local-midi"); expect(form.get("gp5_preview")).toBe("false");
+});
+it("rejects unfinished normal-job output without fetching or importing the MIDI", async () => {
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job_id: savedId, status: "STARTED", files: ["bass.mid"] }) }); vi.stubGlobal("fetch", fetcher);
+  render(<MidiTrial jobSource={{ jobId: savedId, name: "bass.mid" }} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("完了したジョブ"); expect(fetcher).toHaveBeenCalledOnce();
+});
+it("discards an old job MIDI download after the source changes", async () => {
+  let complete!: (value: Blob) => void;
+  const second = "78358988-0548-4c34-a990-40037aeed244";
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ job_id: savedId, status: "SUCCESS", files: ["old.mid"] }) })
+    .mockResolvedValueOnce({ ok: true, blob: () => new Promise(resolve => { complete = resolve; }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ job_id: second, status: "SUCCESS", files: ["new.mid"] }) })
+    .mockResolvedValueOnce({ ok: true, blob: async () => new Blob(["new"]) });
+  vi.stubGlobal("fetch", fetcher);
+  const view = render(<MidiTrial jobSource={{ jobId: savedId, name: "old.mid" }} />);
+  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  view.rerender(<MidiTrial jobSource={{ jobId: second, name: "new.mid" }} />);
+  await screen.findByText(/生成MIDI: new.mid/);
+  expect(fetcher.mock.calls[1][1].signal.aborted).toBe(true);
+  complete(new Blob(["old"]));
+  await waitFor(() => expect(screen.getByText(/生成MIDI: new.mid/)).toBeVisible());
+  expect(screen.queryByText(/生成MIDI: old.mid/)).toBeNull();
+});

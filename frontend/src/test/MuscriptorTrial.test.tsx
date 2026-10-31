@@ -80,3 +80,24 @@ it("restores pending-ID recovery after unmount without a new POST", async () => 
   vi.stubGlobal("fetch", fetchMock); const view = mount(); await screen.findByText("実験経路を利用できます"); fill(); fireEvent.click(screen.getByRole("button", { name: /ローカル実験を実行/ }));
   await screen.findByRole("alert"); view.unmount(); mount(); expect(await screen.findByRole("alert")).toHaveTextContent("saved failure"); expect(fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")).toHaveLength(1); expect(fetchMock.mock.calls[3][0]).toBe(`/api/v1/muscriptor-trials/${id}`);
 });
+it("pauses status waiting and recovers the same ID without another inference POST", async () => {
+  let complete!: (value: unknown) => void;
+  const fetcher = vi.fn().mockResolvedValueOnce(response(available)).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; })); vi.stubGlobal("fetch", fetcher);
+  mount(); await screen.findByText("実験経路を利用できます"); fill(); fireEvent.click(screen.getByRole("button", { name: /ローカル実験を実行/ }));
+  fireEvent.click(screen.getByRole("button", { name: /状態確認を一時停止/ })); expect(fetcher.mock.calls[1][1].signal.aborted).toBe(true);
+  await act(async () => complete(response(running, 202)));
+  expect(screen.getByRole("alert")).toHaveTextContent("処理の取消ではありません");
+  fetcher.mockResolvedValueOnce(response({ ...running, status: "completed", midi_trial_id: midiId }));
+  fireEvent.click(screen.getByRole("button", { name: "同じ試行IDの状態を確認" }));
+  expect(await screen.findByRole("link", { name: /保存MIDI/ })).toBeVisible();
+  expect(fetcher.mock.calls.filter(call => call[1]?.method === "POST")).toHaveLength(1);
+});
+it("shows rejected decoder output as failure without offering a repaired score or retrying", async () => {
+  const failed = { ...running, status: "failed", stage: "failed", error: { code: "invalid_model_output", message: "Raw evidence retained locally; no notes repaired or retried." } };
+  const fetcher = vi.fn().mockResolvedValueOnce(response(available)).mockResolvedValueOnce(response(failed, 202)); vi.stubGlobal("fetch", fetcher);
+  mount(); await screen.findByText("実験経路を利用できます"); fill(); fireEvent.click(screen.getByRole("button", { name: /ローカル実験を実行/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("invalid_model_output");
+  expect(screen.getByRole("alert")).toHaveTextContent("no notes repaired");
+  expect(screen.queryByRole("link", { name: /保存MIDI/ })).toBeNull();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});

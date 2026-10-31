@@ -241,8 +241,9 @@ def test_duplicate_request_returns_same_result_without_reexecution(client,monkey
     ready(monkeypatch)
     seen=stages(monkeypatch)
     request_id=str(uuid4())
-    assert post(client,request_id=request_id).status_code==202
-    repeat=post(client,request_id=request_id)
+    original=audio()
+    assert post(client,original,request_id=request_id).status_code==202
+    repeat=post(client,original,request_id=request_id)
     assert repeat.status_code==202 and repeat.json()["status"]=="completed"
     assert repeat.json()["job_id"]==request_id
     assert seen==["separate","transcribe"]
@@ -263,3 +264,56 @@ def test_invalid_manifest_shape_is_explicit(client,monkeypatch,tmp_path,value):
     manifest.write_text(json.dumps(value))
     monkeypatch.setenv("STEM2TAB_MUSCRIPTOR_DEPLOYMENT",str(manifest))
     assert client.get("/api/v1/muscriptor-trials/availability").json()["reasons"][0]["code"]=="invalid_deployment"
+
+
+def test_same_samples_with_different_wav_metadata_conflict_by_bytes(client, monkeypatch, tmp_path):
+    """Same decoded waveform is not an identical request payload."""
+    ready(monkeypatch)
+    seen = stages(monkeypatch)
+    request_id = str(uuid4())
+    original = audio()
+    metadata = b"JUNK" + (4).to_bytes(4, "little") + b"test"
+    changed = original[:4] + (len(original) + len(metadata) - 8).to_bytes(4, "little") + original[8:] + metadata
+    before, rate = sf.read(io.BytesIO(original))
+    after, changed_rate = sf.read(io.BytesIO(changed))
+    np.testing.assert_array_equal(before, after)
+    assert rate == changed_rate and original != changed
+    assert post(client, original, request_id=request_id).status_code == 202
+    refused = post(client, changed, request_id=request_id)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "request_conflict"
+    assert seen == ["separate", "transcribe"]
+    assert (tmp_path / "muscriptor-trials" / request_id / "input.wav").read_bytes() == original
+
+
+def test_invalid_model_output_keeps_raw_evidence_and_returns_no_score(client, monkeypatch, tmp_path):
+    """Exercise API failure handling; inference itself remains a synthetic stub."""
+    from src.pipelines.muscriptor_decoder import inspect_decoder_integrity
+    ready(monkeypatch)
+    seen = stages(monkeypatch)
+    previous = trial._run_stage
+    def stage(name, deployment, folder, input_path, slot):
+        if name != "transcribe":
+            return previous(name, deployment, folder, input_path, slot)
+        seen.append(name)
+        output = folder / name
+        output.mkdir()
+        notes = [{"onset": .3, "offset": .2, "pitch": 40}]
+        (output / "notes.json").write_text(json.dumps(notes))
+        (output / "tokens.jsonl").write_text('{"raw":true}\n')
+        (output / "events.jsonl").write_text('{"raw":true}\n')
+        integrity = inspect_decoder_integrity(notes, [])
+        (output / "decoder-integrity.json").write_text(integrity.model_dump_json())
+        raise trial.TrialFailure("invalid_model_output", "Raw output rejected; no note repair or retry.")
+    monkeypatch.setattr(trial, "_run_stage", stage)
+    created = post(client)
+    assert created.status_code == 202
+    state = client.get(f'/api/v1/muscriptor-trials/{created.json()["job_id"]}').json()
+    assert state["status"] == "failed" and state["error"]["code"] == "invalid_model_output"
+    assert state["midi_trial_id"] is None and seen == ["separate", "transcribe"]
+    folder = tmp_path / "muscriptor-trials" / state["job_id"]
+    assert json.loads((folder / "transcribe/notes.json").read_text())[0]["offset"] == .2
+    assert json.loads((folder / "transcribe/decoder-integrity.json").read_text())["notes_modified"] is False
+    assert (folder / "transcribe/tokens.jsonl").is_file() and (folder / "transcribe/events.jsonl").is_file()
+    assert not (folder / "transcribe/performance.mid").exists()
+    assert not (folder / "completion.json").exists()
+    assert client.get(f'/api/v1/muscriptor-trials/{state["job_id"]}').json() == state

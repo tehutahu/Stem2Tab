@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 // AlphaTab types are exported from the package; the import is lazy-used.
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { AlphaTabApi, type PlayerStateChangedEventArgs } from "@coderline/alphatab";
+import { AlphaTabApi, type synth } from "@coderline/alphatab";
 
 import { ALPHATAB_RESOURCES } from "../config";
 import type { FretboardNote } from "./Fretboard";
@@ -26,27 +26,27 @@ function AlphaTabViewer({
   const apiRef = useRef<AlphaTabApi | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingNotesRef = useRef<FretboardNote[] | null>(null);
+  const callbacks = useRef({ onActiveNotesChange, onPlayerStateChange });
+  callbacks.current = { onActiveNotesChange, onPlayerStateChange };
   const [status, setStatus] = useState<"idle" | "ready" | "error">("idle");
   const [error, setError] = useState<string | undefined>(undefined);
 
   const destroyApi = (): void => {
-    if (rafRef.current) {
+    if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    pendingNotesRef.current = null;
     apiRef.current?.destroy();
     apiRef.current = null;
   };
 
-  const mapState = (args: PlayerStateChangedEventArgs): PlayerState => {
-    // AlphaTab's PlayerState enum: 0=Stopped, 1=Playing, 2=Paused
-    const raw = (args.state as number | string) ?? 0;
-    if (raw === 1 || raw === "Playing") return "playing";
-    if (raw === 2 || raw === "Paused") return "paused";
-    return "stopped";
+  const mapState = (args: synth.PlayerStateChangedEventArgs): PlayerState => {
+    return args.state === 1 ? "playing" : args.stopped ? "stopped" : "paused";
   };
 
   useEffect(() => {
+    let alive = true;
     if (!scoreUrl || !containerRef.current) {
       setStatus("idle");
       setError(undefined);
@@ -58,10 +58,7 @@ function AlphaTabViewer({
 
     try {
       const api = new AlphaTabApi(containerRef.current, {
-        file: scoreUrl,
-        resources: {
-          url: ALPHATAB_RESOURCES,
-        },
+        core: { scriptFile: `${ALPHATAB_RESOURCES}alphaTab.min.js`, fontDirectory: `${ALPHATAB_RESOURCES}font/` },
         player: {
           enablePlayer: true,
           enableCursor: true,
@@ -71,15 +68,19 @@ function AlphaTabViewer({
       });
 
       apiRef.current = api;
-      setStatus("ready");
+      setStatus("idle");
       setError(undefined);
 
+      api.playerReady.on(() => { if (alive) setStatus("ready"); });
+      api.error.on((cause) => { if (alive) { alive = false; callbacks.current.onPlayerStateChange?.("stopped"); destroyApi(); setStatus("error"); setError(String(cause)); } });
       api.playerStateChanged.on((args) => {
+        if (!alive) return;
         const normalized = mapState(args);
-        onPlayerStateChange?.(normalized);
+        callbacks.current.onPlayerStateChange?.(normalized);
       });
 
       api.activeBeatsChanged.on((args) => {
+        if (!alive) return;
         const beats = args?.activeBeats ?? [];
         const notes: FretboardNote[] = [];
         beats.forEach((beat: { notes: Array<{ string: number; fret: number }> }) => {
@@ -92,14 +93,17 @@ function AlphaTabViewer({
         pendingNotesRef.current = notes;
         if (rafRef.current === null) {
           rafRef.current = requestAnimationFrame(() => {
-            if (pendingNotesRef.current) {
-              onActiveNotesChange?.(pendingNotesRef.current);
+            if (alive && pendingNotesRef.current) {
+              callbacks.current.onActiveNotesChange?.(pendingNotesRef.current);
             }
             rafRef.current = null;
           });
         }
       });
+      if (!api.load(scoreUrl)) throw new Error("Score loading could not start");
     } catch (err) {
+      alive = false;
+      destroyApi();
       setStatus("error");
       setError(err instanceof Error ? err.message : "AlphaTab initialization failed");
       // AlphaTab may not initialize in non-browser contexts; log for debugging.
@@ -108,6 +112,7 @@ function AlphaTabViewer({
     }
 
     return () => {
+      alive = false;
       destroyApi();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

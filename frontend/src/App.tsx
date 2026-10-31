@@ -1,4 +1,4 @@
-import { Link, Route, Routes, useParams } from "react-router-dom";
+import { Link, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 
 import MidiTrial from "./pages/MidiTrial";
 import MuscriptorTrial from "./pages/MuscriptorTrial";
@@ -10,6 +10,13 @@ import Upload from "./pages/Upload";
 function SavedMidiTrial(): JSX.Element {
   const { trialId } = useParams();
   return <MidiTrial key={trialId} savedTrialId={trialId ?? ""} />;
+}
+
+function JobMidiImport(): JSX.Element {
+  const { jobId } = useParams();
+  const [query] = useSearchParams();
+  const name = query.get("name") ?? "";
+  return <MidiTrial key={`${jobId}:${name}`} jobSource={{ jobId: jobId ?? "", name }} />;
 }
 
 function SavedListeningTrial(): JSX.Element {
@@ -31,12 +38,17 @@ function App(): JSX.Element {
           Upload audio, track progress, and preview tablature with demo playback.
         </p>
       </header>
-      <p><Link to="/midi-trial">保存MIDIインポート（実験）</Link></p>
-      <p><Link to="/muscriptor-trial">MuScriptor音源実験（ローカル・明示選択）</Link></p>
+      <nav aria-label="作業の入口" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <Link to="/">音源から採譜（Basic Pitch）</Link>
+        <Link to="/midi-trial">MIDIから五線譜・TAB・任意補正</Link>
+        <Link to="/muscriptor-trial">MuScriptorで採譜（実験・配置確認）</Link>
+      </nav>
+      <p>生成MIDI → 原時刻の五線譜・TAB → 必要な場合だけ運指・量子化・GP5の別版を選べます。</p>
       <Routes>
         <Route path="/notation-trial/:trialId" element={<SavedNotationTrial />} />
         <Route path="/listening-trial/:trialId" element={<SavedListeningTrial />} />
         <Route path="/muscriptor-trial" element={<MuscriptorTrial />} />
+        <Route path="/midi-trial/from-job/:jobId" element={<JobMidiImport />} />
         <Route path="/midi-trial" element={<MidiTrial />} />
         <Route path="/midi-trial/saved/:trialId" element={<SavedMidiTrial />} />
         <Route path="/" element={<Upload />} />

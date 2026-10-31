@@ -143,6 +143,7 @@ export default function MuscriptorTrial(): JSX.Element {
       </fieldset>
       <button type="submit" disabled={!available?.available || !!locked}>{locked ? "実験処理中…" : "この設定でローカル実験を実行"}</button>
     </form>
+    {busy && pendingId && <button onClick={() => { clear(); setBusy(false); setError("状態確認を一時停止しました。処理の取消ではありません。同じ試行IDで確認を再開できます。"); }}>状態確認を一時停止（処理は継続）</button>}
     {error && <p role="alert">{error}</p>}
     {pendingId && !job && <section aria-label="実行結果の確認"><p>結果確認待ちの試行ID: {pendingId}。応答がなくても処理が開始済みの場合があります。見つからない場合も新しい実行は開始しません。</p>
       {!busy && <button onClick={() => { setError(""); setBusy(true); void poll(pendingId, generation.current); }}>同じ試行IDの状態を確認</button>}

@@ -85,3 +85,10 @@ The existing CI workflow runs on pull requests and pushes to main, develop,
 feature/** and fix/**. A push to this codex branch alone does not trigger it.
 Do not report absent runs as passing CI. No merge, deployment, default-route
 change or workflow-permission change is part of this handoff.
+
+## Subsequent cloud integration
+
+The 11 type diagnostics above describe the original handoff commit. The subsequent
+uncommitted integration fixes them and connects completed normal-job MIDI to the
+preserved-time workflow. See [CLOUD_INTEGRATION.md](CLOUD_INTEGRATION.md) for current
+results, synthetic coverage, waiting/cancellation limits and browser prerequisites.

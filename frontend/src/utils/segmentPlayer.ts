@@ -5,6 +5,8 @@ export type SegmentState = { track: TrackKey; playing: boolean; position: number
 export class SegmentPlayer {
   private node: AudioBufferSourceNode | null = null;
   private epoch = 0;
+  // A track change may be waiting for AudioContext.resume after halting the old node.
+  private switchPending = false;
   private disposed = false;
   private startedAt = 0;
   private startedPosition = 0;
@@ -25,6 +27,7 @@ export class SegmentPlayer {
   private emit(): void { if (!this.disposed) this.notify(this.snapshot()); }
   private halt(): void {
     this.epoch++;
+    this.switchPending = false;
     if (this.node) { this.node.onended = null; this.node.stop(); this.node.disconnect(); this.node = null; }
     this.state.playing = false;
   }
@@ -63,8 +66,16 @@ export class SegmentPlayer {
   pause(): void { const position = this.snapshot().position; this.halt(); this.state.position = position; this.emit(); }
   stop(): void { this.halt(); this.state.position = this.state.start; this.emit(); }
   async select(track: TrackKey): Promise<void> {
-    const previous = this.snapshot(); this.halt(); this.state.track = track; this.state.position = previous.position; this.emit();
-    if (previous.playing) await this.play();
+    const previous = this.snapshot();
+    const shouldResume = previous.playing || this.switchPending;
+    this.halt(); this.state.track = track; this.state.position = previous.position; this.emit();
+    if (shouldResume) {
+      const pending = this.play();
+      const token = this.epoch;
+      this.switchPending = true;
+      try { await pending; }
+      finally { if (token === this.epoch) this.switchPending = false; }
+    }
   }
   seek(position: number): void {
     if (!Number.isFinite(position) || position < this.state.start || position > this.state.end) throw new Error("再生位置が区間外です。");

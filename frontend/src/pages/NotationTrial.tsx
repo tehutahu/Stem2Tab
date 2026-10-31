@@ -34,6 +34,7 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
   const [rhythm,setRhythm] = useState(false), [bpm,setBpm] = useState(""), [meter,setMeter] = useState("");
   const [origin,setOrigin] = useState(""), [grid,setGrid] = useState(""), [limit,setLimit] = useState("");
   const [gp5,setGp5] = useState("none"), [display,setDisplay] = useState("");
+  const operation = useRef<AbortController | null>(null);
   const generation = useRef(0), locked = useRef(false);
   const storageKey = `stem2tab-notation-v1:${midiTrialId}`;
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
       if (!response.ok || value.trial_id!==midiTrialId || !/^[a-f0-9]{64}$/.test(value.input_sha256) || value.status==="failed") throw new Error("保存MIDIを確認できません。");
       setSource(value);
     } catch(e) { if (!abort.signal.aborted && gen===generation.current) setError(String(e)); } })();
-    return () => { generation.current++; abort.abort(); };
+    return () => { generation.current++; abort.abort(); operation.current?.abort(); };
   }, [midiTrialId,storageKey]);
 
   const receive = async (response: Response, id: string, gen: number): Promise<void> => {
@@ -66,7 +67,8 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
   const recover = async (): Promise<void> => {
     if (locked.current || !requestId) return;
     locked.current=true; setBusy(true); setError(""); const gen=generation.current;
-    try { await receive(await fetch(`${API_BASE}/api/v1/notation-trials/${requestId}`),requestId,gen); }
+    const controller = new AbortController(); operation.current = controller;
+    try { await receive(await fetch(`${API_BASE}/api/v1/notation-trials/${requestId}`, { signal: controller.signal }),requestId,gen); }
     catch(e) { if(gen===generation.current) setError(String(e)); }
     finally { if(gen===generation.current) { locked.current=false; setBusy(false); } }
   };
@@ -90,8 +92,9 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
           subdivisions_per_quarter:Number(grid),max_boundary_shift_ms:Number(limit)}:null,gp5};
       localStorage.setItem(storageKey,id); setRequestId(id); locked.current=true; setBusy(true);
       const gen=generation.current;
+      const controller = new AbortController(); operation.current = controller;
       try {
-        const response=await fetch(`${API_BASE}/api/v1/notation-trials`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        const response=await fetch(`${API_BASE}/api/v1/notation-trials`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:controller.signal});
         if (response.status===422 && gen===generation.current) {
           localStorage.removeItem(storageKey);setRequestId("");
           throw new Error("設定が受け付けられませんでした。処理は未実行です。数値範囲・拍子・チューニングを確認してください。");
@@ -128,6 +131,7 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
       <label>GP5出力 <select value={gp5} onChange={e=>setGp5(e.target.value)}><option value="none">なし</option><option value="quarter-preview">四分音符の運指プレビュー（リズム非保持）</option><option value="explicit-rhythm">明示量子化リズム版（整数BPM・固定拍子）</option></select></label>
       <p><button onClick={()=>void submit()}>選択した別版を作成</button></p>
     </fieldset>
+    {busy && requestId && <button onClick={() => { generation.current++; operation.current?.abort(); locked.current = false; setBusy(false); setError("待機を中断しました。サーバー処理は継続する場合があります。同じ試行IDの結果を確認してください。"); }}>通信の待機を中断（処理取消ではありません）</button>}
     {requestId && <p>保存試行ID: {requestId} <button disabled={busy} onClick={()=>void recover()}>既存結果を確認（再実行なし）</button></p>}
     <p role="status">{busy ? "処理・確認中" : result ? `結果: ${result.status}` : requestId ? "送信結果は未確認。既存結果を確認してください。" : "設定待ち"}</p>
     {error && <p role="alert">{error}</p>}
