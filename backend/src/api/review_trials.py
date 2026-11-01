@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -25,6 +26,13 @@ class ListeningTrack(BaseModel):
     url: str = ""
 
 
+class DecayPreview(BaseModel):
+    """A fixed audition envelope, independent of the saved note data."""
+    model_config = ConfigDict(extra="forbid")
+    policy: Literal["amplitude-half-life-v1"]
+    half_life_seconds: Literal[0.35]
+
+
 class ListeningSummary(BaseModel):
     """UI-safe comparison identity and timing convention."""
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -41,6 +49,7 @@ class ListeningSummary(BaseModel):
     source_timing_origin_seconds: int
     accuracy_verified: bool
     warning: str
+    decay_preview: DecayPreview | None = None
 
 
 def listening_folder(identifier: str) -> Path:
@@ -67,7 +76,10 @@ def get_listening_trial(identifier: str) -> ListeningSummary:
         if path.is_symlink():
             raise ValueError()
         result = ListeningSummary.model_validate(json.loads(path.read_text()))
-        if result.trial_id != identifier or {t.key for t in result.tracks} != {"original", "bass", "synth"} or len(result.tracks) != 3:
+        expected_keys = {"original", "bass", "synth"}
+        if result.decay_preview is not None:
+            expected_keys.add("synth-decay")
+        if result.trial_id != identifier or {t.key for t in result.tracks} != expected_keys or len(result.tracks) != len(expected_keys):
             raise ValueError()
         for t in result.tracks:
             if t.filename not in {t.key+".wav", t.key+".flac"}:

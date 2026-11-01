@@ -12,17 +12,22 @@ import soundfile as sf
 
 from src.evaluation.saved_midi_trial import _load_unambiguous_midi
 
+DECAY_HALF_LIFE_SECONDS = 0.35
+
 
 def sha256(path: Path) -> str:
     """Hash a bounded local artifact."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare_listening_packet(job_dir: Path, output: Path, *, label: str) -> dict:
+def prepare_listening_packet(
+    job_dir: Path, output: Path, *, label: str, include_decay_preview: bool = False,
+) -> dict:
     """Retain source audio and synthesize saved notes without models or normalization.
 
     Only completed, hash-linked opt-in trials are accepted. All outputs are fresh;
     the source seconds are common to each track, including leading/trailing silence.
+    Optional decay changes per-note amplitude only, never boundaries or pitches.
     """
     job_dir, output = Path(job_dir), Path(output)
     identifier = UUID(output.name)
@@ -55,6 +60,7 @@ def prepare_listening_packet(job_dir: Path, output: Path, *, label: str) -> dict
         raise ValueError("Saved notes exceed the shared audio interval; no cropping")
     sr = 44100
     samples = np.zeros(round(duration * sr), dtype=np.float64)
+    decay_samples = np.zeros_like(samples) if include_decay_preview else None
     rounding = 0.0
     for note in notes:
         a, b = round(note["start"] * sr), round(note["end"] * sr)
@@ -68,9 +74,12 @@ def prepare_listening_packet(job_dir: Path, output: Path, *, label: str) -> dict
             tone[:fade] *= np.linspace(0, 1, fade)
             tone[-fade:] *= np.linspace(1, 0, fade)
         samples[a:b] += .12 * tone
+        if decay_samples is not None:
+            decay_samples[a:b] += .12 * tone * np.exp2(-t / DECAY_HALF_LIFE_SECONDS)
         rounding = max(rounding, abs(a/sr-note["start"]), abs(b/sr-note["end"]))
-    if not np.isfinite(samples).all() or np.max(np.abs(samples), initial=0) >= 1:
-        raise ValueError("Synthesis would clip; no automatic normalization")
+    for rendered in (samples, decay_samples):
+        if rendered is not None and (not np.isfinite(rendered).all() or np.max(np.abs(rendered), initial=0) >= 1):
+            raise ValueError("Synthesis would clip; no automatic normalization")
     output.mkdir(parents=True, exist_ok=False)
     tracks = []
     for key, path in (("original", original), ("bass", bass)):
@@ -80,11 +89,17 @@ def prepare_listening_packet(job_dir: Path, output: Path, *, label: str) -> dict
     synth = output / "synth.wav"
     sf.write(synth, samples, sr, subtype="FLOAT")
     tracks.append({"key": "synth", "filename": synth.name, "sha256": sha256(synth), "bytes": synth.stat().st_size})
+    if decay_samples is not None:
+        decay = output / "synth-decay.wav"
+        sf.write(decay, decay_samples, sr, subtype="FLOAT")
+        tracks.append({"key": "synth-decay", "filename": decay.name, "sha256": sha256(decay), "bytes": decay.stat().st_size})
     summary = dict(trial_id=output.name, label=label, duration_seconds=duration,
         source_job_id=state["job_id"], midi_trial_id=state["midi_trial_id"],
         midi_sha256=sha256(midi), note_count=len(notes), tracks=tracks,
         synthesis_sample_rate=sr, synthesis_max_boundary_rounding_seconds=rounding,
         source_timing_origin_seconds=0, accuracy_verified=False,
         warning="Local private comparison. Synth uses preserved note times and pitches with a fixed additive tone; source timbre, dynamics and controllers are not reproduced. No loudness normalization or reference accuracy claim.")
+    if decay_samples is not None:
+        summary["decay_preview"] = dict(policy="amplitude-half-life-v1", half_life_seconds=DECAY_HALF_LIFE_SECONDS)
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary

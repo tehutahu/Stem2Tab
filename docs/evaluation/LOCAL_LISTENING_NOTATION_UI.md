@@ -14,12 +14,51 @@ duration (maximum10.01 seconds). Audio stays local. Resynthesis uses fixed timbr
 no loudness normalization, and at most half a sample of boundary rounding.
 It is not a reconstruction of source timbre, dynamics, bends or controllers.
 
-The three buffers are fully loaded and hash-checked before playback. Source
+All available buffers are fully loaded and hash-checked before playback. Source
 switching preserves the current source-second position; a single Web Audio
 source owns playback. Loops/endpoints use the audio clock, while the displayed
 position refreshes approximately every40ms. Epoch guards discard stale resume
 and ended callbacks. Interval editing pauses, Apply resets to the interval start,
 and Stop returns there. Minimum interval50ms. Navigation destroys the old player.
+
+### Optional amplitude-decay audition
+
+The legacy `synth.wav` has constant amplitude between its existing 2ms edge fades.
+A new packet can additionally include `synth-decay.wav`, explicitly selected by
+the `採譜再生（減衰あり・試聴のみ）` button. Both variants use the same fixed additive
+tone, sample rate, per-note attack/release fades and original note boundaries.
+Only the extra track multiplies each note by `2 ** (-note_age_seconds / 0.35)`.
+This fixed audition policy, `amplitude-half-life-v1`, halves amplitude every0.35s.
+Overlapping notes decay independently; a repeated attack starts its own envelope.
+No threshold shortens a note, no release extends beyond its original offset, and
+leading/trailing silence stays aligned. Seek/resume uses the existing rendered
+sample offset, so it does not restart a note's envelope. No loudness matching or
+normalization is added. The envelope does not estimate an acoustic instrument.
+
+The builder's default remains the original three-track packet. To opt in, call
+the existing helper with `include_decay_preview=True` and a **new UUID4** output:
+
+```python
+from pathlib import Path
+from uuid import uuid4
+from src.evaluation.listening_packet import prepare_listening_packet
+
+prepare_listening_packet(
+    completed_job_dir, Path(file_bucket) / "listening-trials" / str(uuid4()),
+    label="Local audition", include_decay_preview=True,
+)
+```
+
+This reads existing completed outputs without inference. It does not modify or
+overwrite the source job or existing packets. Older packets still open with the
+original three buttons; they do not gain decay automatically. The fourth track
+requires matching policy metadata, filename and hash; unavailable or changed
+audio fails explicitly. Original mix remains the initially selected track.
+Saved MIDI, TAB, MusicXML, GP5 and note metrics are unchanged. Reduced sustained
+loudness is not corrected transcription duration or a note-accuracy improvement.
+Cloud checks use synthetic notes; real-song listening and instrument playability
+remain unverified. The user's earlier listening approval did not identify which
+duration/envelope candidate was heard, so it does not validate this exact policy.
 
 ## Explicit derivatives
 

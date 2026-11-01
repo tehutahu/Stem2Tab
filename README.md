@@ -287,6 +287,9 @@ This bounded CLI is not yet a new control in the audio-trial Web form.
 
 The optional saved-output comparison and notation UI is documented in
 [LOCAL_LISTENING_NOTATION_UI.md](docs/evaluation/LOCAL_LISTENING_NOTATION_UI.md).
+New listening packets can optionally include a separate amplitude-decay audition
+track. The legacy track and default packet remain unchanged; saved note pitches,
+onsets, offsets, MIDI/notation artifacts and accuracy metrics are not edited.
 Unsupported raw MIDI tempo/meter changes are explicitly rejected before
 normalization, including clock events outside the conductor track.
 It preserves original MIDI/timing XML and requires explicit clock settings for

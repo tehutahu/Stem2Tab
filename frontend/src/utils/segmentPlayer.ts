@@ -1,5 +1,6 @@
 /** One source at a time, sharing an explicit interval and source-seconds clock. */
-export type TrackKey = "original" | "bass" | "synth";
+export type TrackKey = "original" | "bass" | "synth" | "synth-decay";
+export type SegmentBuffers = Record<"original" | "bass" | "synth", AudioBuffer> & { "synth-decay"?: AudioBuffer };
 export type SegmentState = { track: TrackKey; playing: boolean; position: number; start: number; end: number; loop: boolean };
 
 export class SegmentPlayer {
@@ -11,7 +12,7 @@ export class SegmentPlayer {
   private startedAt = 0;
   private startedPosition = 0;
   state: SegmentState;
-  constructor(private context: AudioContext, private buffers: Record<TrackKey, AudioBuffer>, duration: number,
+  constructor(private context: AudioContext, private buffers: SegmentBuffers, duration: number,
     private notify: (state: SegmentState) => void) {
     this.state = { track: "original", playing: false, position: 0, start: 0, end: duration, loop: false };
   }
@@ -32,7 +33,7 @@ export class SegmentPlayer {
     this.state.playing = false;
   }
   configure(start: number, end: number, loop: boolean): void {
-    const duration = Math.min(...Object.values(this.buffers).map(b => b.duration));
+    const duration = Math.min(...Object.values(this.buffers).filter(buffer => buffer !== undefined).map(buffer => buffer.duration));
     if (![start, end].every(Number.isFinite) || start < 0 || end > duration + 1e-6 || end - start < .05) throw new Error("区間は音源内の50ms以上を指定してください。");
     this.halt(); Object.assign(this.state, { start, end, loop, position: start }); this.emit();
   }
@@ -45,9 +46,11 @@ export class SegmentPlayer {
       await this.context.resume();
       if (token !== this.epoch || this.disposed) return;
       if (this.context.state !== "running") throw new Error("音声再生を開始できません。");
+      const buffer = this.buffers[this.state.track];
+      if (!buffer) throw new Error("選択した試聴音源はありません。");
       const offset = position >= this.state.end ? this.state.start : position;
       const node = this.context.createBufferSource(); this.node = node;
-      node.buffer = this.buffers[this.state.track]; node.loop = this.state.loop;
+      node.buffer = buffer; node.loop = this.state.loop;
       node.loopStart = this.state.start; node.loopEnd = this.state.end;
       node.connect(this.context.destination);
       this.startedAt = this.context.currentTime; this.startedPosition = offset;
@@ -66,6 +69,7 @@ export class SegmentPlayer {
   pause(): void { const position = this.snapshot().position; this.halt(); this.state.position = position; this.emit(); }
   stop(): void { this.halt(); this.state.position = this.state.start; this.emit(); }
   async select(track: TrackKey): Promise<void> {
+    if (!this.buffers[track]) throw new Error("選択した試聴音源はありません。");
     const previous = this.snapshot();
     const shouldResume = previous.playing || this.switchPending;
     this.halt(); this.state.track = track; this.state.position = previous.position; this.emit();

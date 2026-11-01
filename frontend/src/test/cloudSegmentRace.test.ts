@@ -2,7 +2,7 @@
 import { expect, it, vi } from "vitest";
 import { SegmentPlayer } from "../utils/segmentPlayer";
 
-function setup() {
+function setup(includeDecay = false) {
   const nodes: any[] = [];
   const context: any = {
     currentTime: 0, state: "running", destination: {}, resume: vi.fn(async () => {}),
@@ -12,6 +12,7 @@ function setup() {
     },
   };
   const buffers: any = { original: { duration: 10 }, bass: { duration: 10 }, synth: { duration: 10 } };
+  if (includeDecay) buffers["synth-decay"] = { duration: 10 };
   const notify = vi.fn();
   const player = new SegmentPlayer(context, buffers, 10, notify);
   player.configure(1, 4, false);
@@ -97,5 +98,64 @@ it("keeps a paused player paused when selecting repeatedly", async () => {
   await player.select("bass"); await player.select("synth");
   expect(nodes).toHaveLength(0);
   expect(player.snapshot()).toMatchObject({ track: "synth", playing: false });
+  player.dispose();
+});
+
+it("refuses unavailable decay without interrupting legacy playback", async () => {
+  const { player, nodes } = setup();
+  await player.play();
+  await expect(player.select("synth-decay")).rejects.toThrow("音源はありません");
+  expect(player.snapshot()).toMatchObject({ track: "original", playing: true });
+  expect(nodes).toHaveLength(1); expect(nodes[0].stop).toHaveBeenCalledTimes(1);
+  player.dispose();
+});
+
+it("configures old packets when the optional decay buffer is explicitly undefined", () => {
+  const { player, buffers } = setup();
+  buffers["synth-decay"] = undefined;
+  expect(() => player.configure(1, 2, false)).not.toThrow();
+  expect(player.snapshot()).toMatchObject({ start: 1, end: 2 });
+  player.dispose();
+});
+
+it("keeps the last decay selection at the same offset despite stale resumes and end events", async () => {
+  const { player, context, nodes, buffers } = setup(true);
+  await player.play(); const staleEnd = nodes[0].onended; context.currentTime = .75;
+  const resolutions: Array<() => void> = [];
+  context.resume.mockImplementation(() => new Promise<void>(resolve => { resolutions.push(resolve); }));
+  const decay = player.select("synth-decay"), old = player.select("synth"), last = player.select("synth-decay");
+  resolutions[2](); await last; resolutions[1](); resolutions[0](); await Promise.all([decay, old]); staleEnd();
+  expect(nodes).toHaveLength(2); expect(nodes[1].buffer).toBe(buffers["synth-decay"]);
+  expect(nodes[1].start).toHaveBeenCalledWith(0, 1.75);
+  expect(player.snapshot()).toMatchObject({ track: "synth-decay", playing: true, position: 1.75 });
+  player.dispose();
+});
+
+it.each(["pause", "stop", "seek", "configure", "dispose"] as const)(
+  "does not revive a pending decay selection after %s", async action => {
+    const { player, context, nodes, notify } = setup(true);
+    await player.play(); context.currentTime = .5;
+    let finish!: () => void;
+    context.resume.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    const pending = player.select("synth-decay");
+    if (action === "seek") player.seek(2);
+    else if (action === "configure") player.configure(0, 3, false);
+    else player[action]();
+    const calls = notify.mock.calls.length; finish(); await pending;
+    expect(player.snapshot().playing).toBe(false); expect(nodes).toHaveLength(1);
+    expect(notify).toHaveBeenCalledTimes(calls);
+    if (action !== "dispose") player.dispose();
+  },
+);
+
+it("resumes decay at the saved sample offset and ends without extending the interval", async () => {
+  const { player, context, nodes } = setup(true);
+  await player.select("synth-decay"); await player.play(); context.currentTime = .8; player.pause();
+  context.currentTime = 2; await player.play();
+  expect(nodes[1].start).toHaveBeenCalledWith(0, 1.8);
+  expect(nodes[1].stop).toHaveBeenCalledWith(4.2);
+  context.currentTime = 4.2; nodes[1].onended();
+  expect(player.snapshot()).toMatchObject({ playing: false, track: "synth-decay", position: 4 });
+  await player.play(); expect(nodes[2].start).toHaveBeenCalledWith(0, 1);
   player.dispose();
 });

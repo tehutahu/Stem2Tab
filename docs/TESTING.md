@@ -532,3 +532,29 @@ successful raw-time display is not a verified musical quantization or tempo.
 `node node_modules/typescript/bin/tsc --noEmit`、`npm run build` を実行します。
 backendの `test_workflow_integration.py` は推論を模擬し、保存MIDIとGP5出力は実際の処理で確認します。
 通信待機の中断はサーバー処理の取消ではなく、保存IDで確認することをテストします。
+
+## Optional listening amplitude decay
+
+`test_evaluation_listening_packet.py` checks unchanged stored legacy WAV/source
+bytes and exact legacy synthesis samples across new packets. New FLOAT WAVs can
+have different PEAK creation timestamps, so their hashes need not match each other.
+It also checks per-note decay with unchanged nonzero sample boundaries, 1ms short
+notes, overlaps, repeated attacks, trailing silence and strict optional-track
+API metadata/hash validation. Run all `test_evaluation_*.py` modules after edits
+to this evaluation helper, or the full backend suite below.
+
+`ListeningTrial.test.tsx` validates old/new packet schemas and stale input loads.
+`cloudSegmentRace.test.ts` covers delayed decay/legacy switches, stale end events,
+pause/stop/seek/configure/dispose during resume, exact interval end and replay.
+The real HTTP browser check must select both variants, pause/seek/resume, switch
+rapidly, reach the interval end, and load an old three-track packet. Synthetic
+amplitude measurements and browser playback are separate from human listening.
+
+```bash
+cd backend
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests cloud_tests -q -p no:cacheprovider
+cd ../frontend
+npm test -- --run
+node node_modules/typescript/bin/tsc --noEmit
+npm run build
+```
