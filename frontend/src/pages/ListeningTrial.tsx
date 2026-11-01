@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { API_BASE } from "../config";
 import { SegmentPlayer, SegmentState, TrackKey } from "../utils/segmentPlayer";
+import { readReviewJson } from "../utils/reviewFetch";
 
 interface ListeningTrack { key: TrackKey; url: string; sha256: string; bytes: number }
 export interface ListeningSummary {
@@ -52,10 +53,9 @@ export default function ListeningTrial({ trialId }: { trialId: string }): JSX.El
     if (!uuid.test(trialId)) { setError("比較IDが不正です。"); return; }
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/listening-trials/${trialId}`, { signal: controller.signal });
-        const body: unknown = await response.json();
+        const body = await readReviewJson(`${API_BASE}/api/v1/listening-trials/${trialId}`, "保存された比較情報", controller.signal);
         if (!alive) return;
-        if (!response.ok || !isListeningSummary(body, trialId)) throw new Error("保存された比較情報を読み込めません。");
+        if (!isListeningSummary(body, trialId)) throw new Error("保存された比較情報を読み込めません。");
         setSummary(body); setEnd(String(body.duration_seconds));
         const audioContext = new AudioContext(); context = audioContext;
         const entries = await Promise.all(body.tracks.map(async track => {

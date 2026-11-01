@@ -287,6 +287,9 @@ This bounded CLI is not yet a new control in the audio-trial Web form.
 
 The optional saved-output comparison and notation UI is documented in
 [LOCAL_LISTENING_NOTATION_UI.md](docs/evaluation/LOCAL_LISTENING_NOTATION_UI.md).
+Saved offset-only and crop-prefix candidates can be audited separately with the
+[prospective correction audit](docs/evaluation/CORRECTION_AUDIT.md). It freezes
+targets/settings and records regressions without running or adopting a correction.
 New listening packets can optionally include a separate amplitude-decay audition
 track. The legacy track and default packet remain unchanged; saved note pitches,
 onsets, offsets, MIDI/notation artifacts and accuracy metrics are not edited.

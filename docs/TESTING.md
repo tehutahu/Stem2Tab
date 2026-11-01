@@ -535,6 +535,15 @@ backendの `test_workflow_integration.py` は推論を模擬し、保存MIDIとG
 
 ## Optional listening amplitude decay
 
+For separate note-offset and crop-prefix candidate evaluation, see
+[the prospective correction audit](evaluation/CORRECTION_AUDIT.md).
+`test_evaluation_correction_audit.py` covers frozen targets/settings/hashes, reused
+recording exclusion, recording-level aggregation, boundary continuations, silent
+references, invalid/failed/unscored outputs and F1 gains hiding offset regressions.
+It uses synthetic JSON only and never executes a correction or inference model.
+The integration scope, JSON response/cancellation tests, and separate initial-carry
+experiment commands are documented in [LOCAL_REVIEW_VALIDATION.md](LOCAL_REVIEW_VALIDATION.md).
+
 `test_evaluation_listening_packet.py` checks unchanged stored legacy WAV/source
 bytes and exact legacy synthesis samples across new packets. New FLOAT WAVs can
 have different PEAK creation timestamps, so their hashes need not match each other.
