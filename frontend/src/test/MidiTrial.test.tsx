@@ -11,15 +11,15 @@ function selectInput(): void {
 afterEach(() => {vi.unstubAllGlobals(); window.history.replaceState({},"","/");});
 const savedId = "0e8ac6da-bceb-4675-aa1a-9518eb3afb89";
 const savedSummary = { ...summary, trial_id: savedId, artifacts: summary.artifacts.map((a) => ({ ...a, url: a.url.replace("fresh-id", savedId) })) };
-it("offers time-proportional spacing explicitly and carries it across notation-clock links",async()=>{
+it("offers time-proportional source spacing and labels legacy double links as storage clocks",async()=>{
   window.history.replaceState({},"","/?view=tab&notation=double&spacing=time");
   const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({...savedSummary,storage_clock:{...summary.storage_clock,tempo_bpm:60}})});vi.stubGlobal("fetch",fetchMock);
   render(<MidiTrial savedTrialId={savedId}/>);
   expect(await screen.findByTestId("viewer")).toHaveAttribute("data-spacing","time");
-  expect(screen.getByRole("link",{name:"原版 60 BPMで表示"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}?view=tab&spacing=time`);
+  expect(screen.getByText(/旧リンクの2倍保存クロック/)).toHaveTextContent("音楽的テンポの推定値ではありません");
   fireEvent.change(screen.getByLabelText("横配置"),{target:{value:"engraved"}});
   expect(screen.getByTestId("viewer")).toHaveAttribute("data-spacing","engraved");
-  expect(screen.getByRole("link",{name:"原版 60 BPMで表示"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}?view=tab`);
+  expect(screen.getByRole("link",{name:"原版に戻る"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}`);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it("opens the explicit double notation clock while retaining original links and assumptions",async()=>{
@@ -30,15 +30,14 @@ it("opens the explicit double notation clock while retaining original links and 
   const viewer=await screen.findByTestId("viewer");
   expect(viewer).toHaveAttribute("data-url",`/api/v1/midi-trials/${savedId}/notation-clock/double.musicxml`);
   expect(viewer).toHaveAttribute("data-variant","notation-clock");
-  expect(screen.getByText(/表示中: 候補 120 BPM/)).toBeVisible();
-  expect(screen.getByText(/4→2秒、小節数は2倍/)).toBeVisible();
-  expect(screen.getByText(/拍原点0秒/)).toHaveTextContent("未確認");
-  expect(screen.getByText(/この原時刻の記譜テンポ変換ではGP5/)).toBeVisible();
-  expect(screen.getByRole("link",{name:"原版 60 BPMで表示"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}?view=tab`);
+  expect(screen.getByText(/旧リンクの2倍保存クロック/)).toHaveTextContent("120 BPMは音楽的テンポの推定値ではありません");
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(null);
+  expect(screen.getByLabelText("音楽的拍子")).toHaveValue("");
+  expect(screen.getByRole("link",{name:"原版に戻る"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}`);
   expect(screen.getByRole("link",{name:/元MIDI（/})).toHaveAttribute("href",body.artifacts[0].url);
   expect(screen.getByRole("link",{name:/時刻保持MusicXML（保存/})).toHaveAttribute("href",body.artifacts[1].url);
   fireEvent.click(screen.getByRole("checkbox",{name:/五線譜/}));
-  expect(screen.getByRole("link",{name:"原版 60 BPMで表示"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}?view=staff`);
+  expect(screen.getByRole("link",{name:"原版に戻る"})).toHaveAttribute("href",`/midi-trial/saved/${savedId}`);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it("opens a saved result by GET without selecting, uploading, or converting a file", async () => {
