@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MidiTrialViewer from "../components/MidiTrialViewer";
+vi.mock("../utils/readableEngraving", () => ({ installReadableEngravingLayout: vi.fn() }));
 const mock = vi.hoisted(() => ({ apis: [] as any[], loadResult: true }));
 vi.mock("@coderline/alphatab", () => ({ model: { Clef: { F4: 3 } }, AlphaTabApi: class {
-  scoreLoaded = event(); renderFinished = event(); playerReady = event(); playerStateChanged = event(); playerPositionChanged = event(); error = event();
+  scoreLoaded = event(); renderStarted = event(); renderFinished = event(); playerReady = event(); playerStateChanged = event(); playerPositionChanged = event(); error = event();
+  settings = {display:{scale:1}}; updateSettings=vi.fn(); render=vi.fn();
   renderer = { boundsLookup: null }; tickCache = null;
   isReadyForPlayback = true; _time = 0;
   get timePosition(){return this._time;}
@@ -32,7 +34,7 @@ it("destroys the old player on spacing switches and rejects stale completion/pos
   expect(old.destroy).toHaveBeenCalledTimes(1);
   act(()=>{old.renderFinished.emit();old.playerReady.emit();old.playerPositionChanged.emit({currentTime:5000,endTime:12000,currentTick:4800});});
   expect(screen.getByRole("button",{name:"再生"})).toBeDisabled();expect(screen.getByText("0.00 / 0.00 秒")).toBeVisible();
-  expect(screen.getByText(/1秒/)).toHaveTextContent("360px");
+  expect(screen.getByText(/小節ごとに画面幅/)).toHaveTextContent("同じ小節内では等速");
   view.rerender(<MidiTrialViewer scoreUrl="/original.xml"/>);expect(mock.apis[1].destroy).toHaveBeenCalledTimes(1);
 });
 it("keeps notation-clock rebarring distinct from quantization and disposes stale players",()=>{
@@ -141,4 +143,44 @@ it("reports SDK errors, refuses unready playback, and allows replay after stop",
   api.isReadyForPlayback = true; fireEvent.click(screen.getByRole("button", { name: "再生" })); fireEvent.click(screen.getByRole("button", { name: "一時停止" })); expect(api.pause).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "停止" })); expect(api.stop).toHaveBeenCalledTimes(1); act(() => api.playerStateChanged.emit({ state: 0, stopped: true })); fireEvent.click(screen.getByRole("button", { name: "再生" })); expect(api.play).toHaveBeenCalledTimes(2);
   act(() => api.error.emit(new Error("synth failed"))); expect(screen.getByRole("alert")).toHaveTextContent("synth failed"); expect(screen.getByRole("button", { name: "再生" })).toBeDisabled();
+});
+
+it("changes engraving size without destroying or resetting the current player", () => {
+  render(<MidiTrialViewer scoreUrl="/original.xml" />);
+  const api = mock.apis[0];
+  act(() => api.playerReady.emit());
+  fireEvent.click(screen.getByRole("button", { name: "再生" }));
+  act(() => api.playerPositionChanged.emit({ currentTime: 2500, currentTick: 4800, endTime: 12000 }));
+  fireEvent.change(screen.getByLabelText("譜面の大きさ"), { target: { value: "1.2" } });
+  expect(api.settings.display.scale).toBe(1.2);
+  expect(api.updateSettings).toHaveBeenCalledOnce();
+  expect(api.render).toHaveBeenCalledOnce();
+  expect(api.destroy).not.toHaveBeenCalled();
+  expect(api.stop).not.toHaveBeenCalled();
+  expect(screen.getByRole("slider")).toHaveValue("2.5");
+  expect(screen.getByRole("region", { name: "譜面・横スクロール可能" })).toHaveAttribute("tabindex", "0");
+});
+
+it("labels user-declared clock previews as seconds-preserving without claiming quantization", () => {
+  render(<MidiTrialViewer scoreUrl="/musical-clock.xml" variant="musical-clock" />);
+  expect(screen.getByText(/利用者が明示した固定BPM/)).toHaveTextContent("量子化・自動推定は行いません");
+  expect(screen.getByText(/利用者が明示した固定BPM/)).toHaveTextContent("素材先頭の時刻0");
+  expect(screen.queryByText(/量子化別版です/)).toBeNull();
+});
+
+
+it("reports dense overflow after the SDK appends SVGs, and clears it after a narrower rerender", async () => {
+  render(<MidiTrialViewer scoreUrl="/original.xml" />);
+  const frame = screen.getByRole("region", { name: "譜面・横スクロール可能" });
+  let width = 300;
+  Object.defineProperties(frame, { clientWidth: { value: 300 }, scrollWidth: { get: () => width } });
+  act(() => mock.apis[0].renderFinished.emit());
+  expect(screen.queryByText(/音符が密な小節は/)).toBeNull();
+  const svgHost = document.createElement("div");
+  width = 900;
+  frame.querySelector(".midi-trial-score")!.appendChild(svgHost);
+  await waitFor(() => expect(screen.getByText(/音符が密な小節は/)).toBeVisible());
+  width = 300;
+  svgHost.style.width = "300px";
+  await waitFor(() => expect(screen.queryByText(/音符が密な小節は/)).toBeNull());
 });

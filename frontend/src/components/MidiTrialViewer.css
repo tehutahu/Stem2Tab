@@ -33,3 +33,16 @@
   padding: 8px 0; background: #fff; border-bottom: 1px solid #ddd;
 }
 .midi-trial-controls p { margin: 6px 0 0; }
+
+/* Constrain the score's intrinsic SVG width to its own keyboard-accessible scroller. */
+.score-viewer { min-width: 0; max-width: 100%; }
+.midi-trial-score-frame, .legacy-score-frame {
+  width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box;
+  overflow-x: auto; contain: inline-size;
+}
+.midi-trial-score { width: 100%; min-width: 0; }
+.midi-trial-score-frame:focus-visible, .legacy-score-frame:focus-visible {
+  outline: 2px solid #2563eb; outline-offset: 2px;
+}
+.midi-trial-controls label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.midi-trial-controls input[type="range"] { min-width: 0; flex: 1; }

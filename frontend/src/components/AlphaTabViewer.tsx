@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { AlphaTabApi, type synth } from "@coderline/alphatab";
 
+import "./MidiTrialViewer.css";
+import { installReadableEngravingLayout } from "../utils/readableEngraving";
 import { ALPHATAB_RESOURCES } from "../config";
 import type { FretboardNote } from "./Fretboard";
 
@@ -24,11 +26,13 @@ function AlphaTabViewer({
 }: AlphaTabViewerProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<AlphaTabApi | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingNotesRef = useRef<FretboardNote[] | null>(null);
   const callbacks = useRef({ onActiveNotesChange, onPlayerStateChange });
   callbacks.current = { onActiveNotesChange, onPlayerStateChange };
   const [status, setStatus] = useState<"idle" | "ready" | "error">("idle");
+  const [overflow, setOverflow] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const destroyApi = (): void => {
@@ -55,10 +59,25 @@ function AlphaTabViewer({
     }
 
     destroyApi();
+    setOverflow(false);
+    const updateOverflow = (): void => {
+      const frame = frameRef.current;
+      if (alive && frame) setOverflow(frame.scrollWidth > frame.clientWidth + 1);
+    };
+    const scoreObserver = new MutationObserver(updateOverflow);
+    scoreObserver.observe(containerRef.current, { childList: true, subtree: true });
 
+    const fail = (cause: unknown): void => {
+      if (!alive) return;
+      alive = false;
+      callbacks.current.onPlayerStateChange?.("stopped");
+      destroyApi();
+      setStatus("error");
+      setError(String(cause));
+    };
     try {
       const api = new AlphaTabApi(containerRef.current, {
-        core: { scriptFile: `${ALPHATAB_RESOURCES}alphaTab.min.js`, fontDirectory: `${ALPHATAB_RESOURCES}font/` },
+        core: { scriptFile: `${ALPHATAB_RESOURCES}alphaTab.min.js`, fontDirectory: `${ALPHATAB_RESOURCES}font/`, useWorkers: false },
         player: {
           enablePlayer: true,
           enableCursor: true,
@@ -72,7 +91,13 @@ function AlphaTabViewer({
       setError(undefined);
 
       api.playerReady.on(() => { if (alive) setStatus("ready"); });
-      api.error.on((cause) => { if (alive) { alive = false; callbacks.current.onPlayerStateChange?.("stopped"); destroyApi(); setStatus("error"); setError(String(cause)); } });
+      api.error.on(fail);
+      api.renderFinished.on(updateOverflow);
+      api.scoreLoaded.on(() => {
+        if (!alive) return;
+        try { installReadableEngravingLayout(api); }
+        catch (cause) { fail(cause); }
+      });
       api.playerStateChanged.on((args) => {
         if (!alive) return;
         const normalized = mapState(args);
@@ -113,6 +138,7 @@ function AlphaTabViewer({
 
     return () => {
       alive = false;
+      scoreObserver.disconnect();
       destroyApi();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,8 +155,8 @@ function AlphaTabViewer({
   };
 
   return (
-    <div style={{ display: "grid", gap: "0.75rem" }}>
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+    <div className="score-viewer" style={{ display: "grid", gap: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" onClick={handlePlay} disabled={status !== "ready"}>
           ▶ Play
         </button>
@@ -142,6 +168,8 @@ function AlphaTabViewer({
         </button>
         <span style={{ color: "#4b5563" }}>State: {status}</span>
       </div>
+      {overflow && <p>音符が密な小節は読みやすい幅を保っています。譜面内を横にスクロールしてください。</p>}
+      <div ref={frameRef} className="legacy-score-frame" role="region" aria-label="譜面・横スクロール可能" tabIndex={0}>
       <div
         ref={containerRef}
         style={{
@@ -150,10 +178,11 @@ function AlphaTabViewer({
           minHeight: "200px",
           borderRadius: "8px",
           background: "#f9fafb",
-          overflow: "hidden",
+          minWidth: 0,
         }}
       >
         AlphaTab player will render here.
+      </div>
       </div>
       {error && <p style={{ color: "#dc2626" }}>AlphaTab error: {error}</p>}
     </div>
