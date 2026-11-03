@@ -19,6 +19,7 @@ import structlog
 from src.core.config import settings
 from src.pipelines.bass_output import BassOutputConfig
 from src.evaluation.midi_clock import UnsupportedMidiClockError, validate_fixed_storage_clock
+from src.evaluation.saved_midi_trial import MidiValidationDiagnostic, MidiValidationError
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1/midi-trials", tags=["saved MIDI trials"])
@@ -37,6 +38,7 @@ class MidiTrialError(BaseModel):
 
     code: str
     message: str
+    diagnostic: MidiValidationDiagnostic | None = None
 
 
 class MidiTrialErrorResponse(BaseModel):
@@ -121,8 +123,8 @@ ARTIFACTS = {
 ERROR_RESPONSES = {code: {"model": MidiTrialErrorResponse} for code in (404,409,413,415,422)}
 
 
-def _reject(code: int, reason: str, message: str) -> None:
-    raise HTTPException(status_code=code, detail=MidiTrialError(code=reason,message=message).model_dump())
+def _reject(code: int, reason: str, message: str, *, diagnostic: MidiValidationDiagnostic | None = None) -> None:
+    raise HTTPException(status_code=code, detail=MidiTrialError(code=reason,message=message,diagnostic=diagnostic).model_dump(exclude_none=True))
 
 
 def _sha(path: Path) -> str:
@@ -220,8 +222,10 @@ def _preflight(data: bytes) -> tuple[Any,list[dict[str,Any]],float]:
         raise
     except UnsupportedMidiClockError as exc:
         _reject(422,"unsupported_midi_clock",str(exc))
+    except MidiValidationError as exc:
+        _reject(422,exc.code,str(exc),diagnostic=exc.diagnostic)
     except Exception:
-        _reject(422,"invalid_midi","The file is malformed, ambiguous, or unsupported by the saved-MIDI trial; no silent event repair is performed.")
+        _reject(422,"invalid_midi","MIDIを読み込めません。元ファイルが標準MIDI形式で保存され、最後まで書き込まれているか確認してください。原出力は変更せず、音の自動修復や再推論は行いません。")
 
 
 def _run_trial(input_path: Path, output: Path, **kwargs: Any) -> dict[str,Any]:

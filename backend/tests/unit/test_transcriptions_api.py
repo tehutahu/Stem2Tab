@@ -345,10 +345,11 @@ def test_launcher_cleans_descendant_after_leader_exit_only_owned_group(tmp_path)
 def test_notation_rejection_keeps_verified_raw_midi_downloadable(client,monkeypatch):
     from fastapi import HTTPException
     stages(monkeypatch)
-    def reject(*args,**kwargs):raise HTTPException(422,detail={'code':'duration_limit'})
+    def reject(*args,**kwargs):raise HTTPException(422,detail={'code':'duration_limit','message':'Synthetic output exceeds the duration limit; retain the raw MIDI and review its event times.'})
     monkeypatch.setattr(song.midi_trials,'import_midi_bytes',reject)
     state=terminal(client,post(client));folder=song._folder(state['job_id'])
     assert state['status']=='failed' and state['error']['code']=='duration_limit'
+    assert state['error']['message']=='Synthetic output exceeds the duration limit; retain the raw MIDI and review its event times.'
     assert 'performance.mid' in state['available_files']
     response=client.get(f"/api/v1/transcriptions/{state['job_id']}/files/performance.mid")
     assert response.status_code==200 and response.content==(folder/'transcribe/performance.mid').read_bytes()

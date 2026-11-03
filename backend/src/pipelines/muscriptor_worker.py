@@ -392,10 +392,15 @@ def _literal_midi(path: Path, notes: list[dict[str, Any]], *, preserve_zero_dura
                     (a == b and not preserve_zero_duration) or
                     type(pitch) is not int or not 0 <= pitch <= 127):
                 raise WorkerFailure("invalid_model_output")
-            messages.extend([(round(a * 10000), a, ordinal * 2, mido.Message("note_on", note=pitch, velocity=100, channel=channel)),
-                             (round(b * 10000), b, ordinal * 2 + 1, mido.Message("note_off", note=pitch, velocity=0, channel=channel))])
+            # At an exact reattack, close positive intervals before opening new
+            # ones regardless of raw-row order. Zero-length pairs stay together
+            # between those phases, with their own attack before their release.
+            messages.extend([(round(a * 10000), a, 2 if b > a else 1, ordinal * 2,
+                              mido.Message("note_on", note=pitch, velocity=100, channel=channel)),
+                             (round(b * 10000), b, 0 if b > a else 1, ordinal * 2 + 1,
+                              mido.Message("note_off", note=pitch, velocity=0, channel=channel))])
         previous = 0
-        for tick, _, _, message in sorted(messages, key=lambda row: row[:3]):
+        for tick, _, _, _, message in sorted(messages, key=lambda row: row[:4]):
             message.time = tick - previous
             previous = tick
             track.append(message)

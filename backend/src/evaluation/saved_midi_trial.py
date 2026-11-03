@@ -15,12 +15,33 @@ from typing import Any, Literal
 
 import mido
 import pretty_midi
+from pydantic import BaseModel, ConfigDict
 
 from src.evaluation.io import write_note_events_csv, write_note_events_json
 from src.evaluation.models import NoteEvent, NoteEventSet
 from src.evaluation.notation_fidelity import write_fidelity_musicxml
 from src.evaluation.midi_clock import validate_fixed_storage_clock
 from src.pipelines.bass_output import BassOutputConfig, BassOutputEvent, write_bass_gp5_preview
+
+
+class MidiValidationDiagnostic(BaseModel):
+    """Bounded public location of a note-stream refusal, without source paths."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    boundary: Literal["saved_midi_note_stream"] = "saved_midi_note_stream"
+    tick: int | None = None
+    channel: int | None = None
+    pitch: int | None = None
+    count: int | None = None
+
+
+class MidiValidationError(ValueError):
+    """A known strict-loader refusal, safe to return without exception text."""
+
+    def __init__(self, code: str, message: str, **location: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.diagnostic = MidiValidationDiagnostic(**location)
 
 
 def _sha(data: bytes) -> str:
@@ -47,20 +68,24 @@ def _load_unambiguous_midi(data: bytes) -> tuple[pretty_midi.PrettyMIDI, list[di
         if message.type not in {"note_on", "note_off"}:
             continue
         if message.channel == 9:
-            raise ValueError("Drum note events are unsupported; no implicit filtering is allowed")
+            raise MidiValidationError("midi_drum_notes", "ドラム音を含むためベース譜面候補にできません。原出力は保持しています。必要な楽器だけを明示選択した別MIDIを用意してください。",
+                                      tick=tick, channel=message.channel, pitch=message.note)
         key = message.channel, message.note
         if message.type == "note_on" and message.velocity > 0:
             if key in active:
-                raise ValueError("Ambiguous same-channel/pitch overlapping note-ons; source is retained unchanged")
+                raise MidiValidationError("midi_same_pitch_overlap", "同じチャンネル・音高の音が重なり、発音停止の対応を一意に決められません。原出力は保持しています。元音符の重複を確認してください。自動で削除・短縮はしません。",
+                                          tick=tick, channel=message.channel, pitch=message.note)
             active[key] = tick
         else:
             if key not in active:
-                raise ValueError("Unmatched note-off; refusing silent note-stream repair")
+                raise MidiValidationError("midi_unmatched_note_off", "対応する発音開始のない発音停止があります。原出力は保持しています。MIDIのイベント順と開始・停止の組を確認してください。",
+                                          tick=tick, channel=message.channel, pitch=message.note)
             if tick <= active.pop(key):
-                raise ValueError("Zero/negative duration note would be dropped by the MIDI loader")
+                raise MidiValidationError("midi_nonpositive_duration", "MIDI上で音の開始と終了が同時刻または逆順です。保存時の丸めで長さが失われた場合もあります。原出力は保持しています。元の開始・終了を確認してください。音は自動で延長しません。",
+                                          tick=tick, channel=message.channel, pitch=message.note)
             completed += 1
     if active:
-        raise ValueError("Unclosed note-ons would be lost by the MIDI loader")
+        raise MidiValidationError("midi_unclosed_note_on", "発音停止のない音があります。原出力は保持しています。元MIDIの開始・停止の組を確認してください。停止時刻は自動補完しません。", count=len(active))
     midi = pretty_midi.PrettyMIDI(io.BytesIO(data))
     _, tempi = midi.get_tempo_changes()
     if any(abs(float(t) - float(tempi[0])) > 1e-6 for t in tempi):
@@ -69,14 +94,14 @@ def _load_unambiguous_midi(data: bytes) -> tuple[pretty_midi.PrettyMIDI, list[di
         raise ValueError("Only absent or fixed4/4 storage meter is supported; no musical meter is inferred")
     instruments = [instrument for instrument in midi.instruments if instrument.notes]
     if len(instruments) > 1:
-        raise ValueError("Multiple populated instruments require an explicit external selection; no automatic merging")
+        raise MidiValidationError("midi_multiple_instruments", "複数の楽器・プログラムに音があるため、ベース譜面候補に自動統合できません。原出力は保持しています。必要な楽器だけを明示選択した別MIDIを用意してください。", count=len(instruments))
     rows: list[dict[str, Any]] = []
     for instrument in instruments:
         if instrument.is_drum:
             raise ValueError("Drum notes are unsupported")
         for n in instrument.notes:
             if n.pitch < 12:
-                raise ValueError("MIDI below12 is outside the bounded MusicXML exporter; source is unchanged")
+                raise MidiValidationError("midi_pitch_range", "MIDI音高12未満は現在のMusicXML出力範囲外です。原出力は保持しています。元音符の音高を確認してください。自動で移調・削除はしません。", pitch=int(n.pitch))
             rows.append(dict(start=float(n.start), end=float(n.end), midi=int(n.pitch),
                              velocity=int(n.velocity), program=int(instrument.program),
                              start_tick=int(round(midi.time_to_tick(n.start))),
@@ -85,7 +110,7 @@ def _load_unambiguous_midi(data: bytes) -> tuple[pretty_midi.PrettyMIDI, list[di
     for index, row in enumerate(rows):
         row["source_index"] = index
     if len(rows) != completed:
-        raise ValueError("Loaded note count differs from paired source events; refusing silent loss")
+        raise MidiValidationError("midi_note_count_mismatch", "MIDI読込後の音数が元イベントの組数と一致しません。原出力は保持しています。イベント対応の調査が必要なため、候補の作成を停止しました。", count=completed)
     return midi, rows
 
 

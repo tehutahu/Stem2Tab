@@ -1,5 +1,6 @@
 """Synthetic retained-event review; no model/audio inference or private fixtures."""
 from copy import deepcopy
+from itertools import permutations
 import hashlib
 import json
 from pathlib import Path
@@ -43,8 +44,10 @@ def retained(tmp_path, monkeypatch):
     return TestClient(app),folder,notes,before
 
 
-def test_raw_midi_preserves_zero_duration_and_every_event_pair(tmp_path):
+@pytest.mark.parametrize('order',list(permutations(range(3))))
+def test_raw_midi_preserves_zero_duration_and_every_event_pair(tmp_path,order):
     notes=[dict(index=i,program=33,pitch=40,onset=a,offset=b) for i,(a,b) in enumerate([(.1,.5),(.5,.5),(.5,1.)])]
+    notes=[notes[i] for i in order]
     source=deepcopy(notes);path=tmp_path/'all-events.mid'
     result=worker._literal_midi(path,notes,preserve_zero_duration=True)
     midi=mido.MidiFile(path);clock=0;active={};rows=[]
@@ -167,3 +170,81 @@ def test_token_regression_is_not_zero_only_review(retained):
     (output/'tokens.jsonl').write_text(''.join(json.dumps(t)+'\n' for t in tokens))
     trial._write_json(output/'decoder-integrity.json',inspect_decoder_integrity(notes,tokens).model_dump(mode='json'))
     with pytest.raises(review.ReviewDataError):review.inspect_source(output,2.,'failed')
+
+
+def _replace_synthetic_notes(folder, notes):
+    output=folder/'transcribe'
+    trial._write_json(output/'notes.json',notes)
+    tokens=[json.loads(line) for line in (output/'tokens.jsonl').read_text().splitlines()]
+    trial._write_json(output/'decoder-integrity.json',inspect_decoder_integrity(notes,tokens).model_dump(mode='json'))
+    receipt=api.review_base(folder)/'source'
+    (receipt/'model-events.mid').unlink();(receipt/'output-review.json').unlink()
+    worker._literal_midi(receipt/'model-events.mid',notes,preserve_zero_duration=True)
+    review.write_manifest(output,receipt/'model-events.mid',2.,'failed')
+
+
+def test_reversed_adjacent_rows_import_without_changing_boundaries_or_source(retained):
+    client,folder,notes,_=retained
+    notes.reverse();_replace_synthetic_notes(folder,notes)
+    source={p:p.read_bytes() for root in (folder,api.review_base(folder)/'source') for p in root.rglob('*') if p.is_file()}
+    identifier=str(uuid4());url=f'/api/v1/transcriptions/{folder.name}/review-previews'
+    response=client.post(url,data=dict(request_id=identifier,policy='exclude_zero_duration'))
+    assert response.status_code==201,response.text
+    assert response.json()['status']=='completed'
+    summary=client.get('/api/v1/midi-trials/'+identifier).json()
+    rows=client.get(next(a['url'] for a in summary['artifacts'] if a['key']=='source-events')).json()
+    assert [(n['midi'],n['start_tick'],n['end_tick'],n['velocity']) for n in rows]==[(40,1000,5000,100),(40,5000,10000,100)]
+    assert all(p.read_bytes()==data for p,data in source.items())
+
+
+@pytest.mark.parametrize(('change','code'),[
+    ('overlap','midi_same_pitch_overlap'),('program','midi_multiple_instruments'),
+    ('collapsed','midi_nonpositive_duration'),('drum','midi_drum_notes'),('low','midi_pitch_range')])
+def test_refused_candidate_has_durable_actionable_result_and_same_id_replay(retained,monkeypatch,change,code):
+    client,folder,notes,_=retained
+    if change=='overlap':notes[2]['onset']=.4
+    elif change=='program':notes[2]['program']=32
+    elif change=='collapsed':notes[2].update(onset=.50001,offset=.50004)
+    elif change=='drum':notes[2].update(program=128,is_drum=True,instrument='drums')
+    elif change=='low':notes[2]['pitch']=11
+    _replace_synthetic_notes(folder,notes)
+    source={p:p.read_bytes() for root in (folder,api.review_base(folder)/'source') for p in root.rglob('*') if p.is_file()}
+    identifier=str(uuid4());url=f'/api/v1/transcriptions/{folder.name}/review-previews'
+    body=dict(request_id=identifier,policy='exclude_zero_duration')
+    response=client.post(url,data=body)
+    assert response.status_code==201,response.text
+    result=response.json()
+    assert result['status']=='blocked' and result['midi_trial_id'] is None
+    assert result['error']['code']==code and result['error']['message']
+    assert result['error']['diagnostic']['boundary']=='saved_midi_note_stream'
+    path=api._preview_folder(folder,identifier)
+    assert (path/'preview.mid').is_file() and not (settings.file_bucket_path/'midi-trials'/identifier).exists()
+    monkeypatch.setattr(api.midi_trials,'import_midi_bytes',lambda *a,**k:pytest.fail('Same ID must not convert again'))
+    assert client.post(url,data=body).json()==result
+    assert client.get(url+'/'+identifier).json()==result
+    # Recover a receipt stranded by the previous HTTP422 implementation.
+    (path/'result.json').unlink()
+    plan=json.loads((path/'request.json').read_text());plan.pop('preview_sha256')
+    trial._write_json(path/'request.json',plan)
+    assert client.get(url+'/'+identifier).json()==result
+    assert client.post(url,data=body).json()==result
+    assert all(p.read_bytes()==data for p,data in source.items())
+
+
+@pytest.mark.parametrize('changed',['source','candidate','saved-midi','saved-xml'])
+@pytest.mark.parametrize('lost_result',[False,True])
+def test_completed_candidate_recovery_refuses_changed_bytes_without_replacement(retained,changed,lost_result):
+    client,folder,_,_=retained;identifier=str(uuid4());url=f'/api/v1/transcriptions/{folder.name}/review-previews'
+    body=dict(request_id=identifier,policy='exclude_zero_duration')
+    assert client.post(url,data=body).json()['status']=='completed'
+    result=api._preview_folder(folder,identifier)/'result.json'
+    if lost_result:result.unlink()
+    paths={'source':folder/'transcribe/notes.json','candidate':api._preview_folder(folder,identifier)/'preview.mid',
+           'saved-midi':settings.file_bucket_path/'midi-trials'/identifier/'input.mid',
+           'saved-xml':settings.file_bucket_path/'midi-trials'/identifier/'output/performance-clock.musicxml'}
+    path=paths[changed];path.write_bytes(path.read_bytes()+b' ')
+    before={p:p.read_bytes() for p in settings.file_bucket_path.rglob('*') if p.is_file()}
+    assert client.get(url+'/'+identifier).status_code==409
+    assert client.post(url,data=body).status_code==409
+    assert all(p.read_bytes()==data for p,data in before.items())
+    assert result.exists()==(not lost_result)
