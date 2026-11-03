@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -83,6 +83,7 @@ class ReviewPreview(BaseModel):
     excluded_note_count: int
     retained_note_count: int
     midi_trial_id: str | None = None
+    error: midi_trials.MidiTrialError | None = None
 
     @model_validator(mode="after")
     def consistent_preview(self) -> "ReviewPreview":
@@ -98,6 +99,8 @@ class ReviewPreview(BaseModel):
             raise ValueError("Only a complete preview has a saved MIDI trial")
         if self.midi_trial_id is not None and self.midi_trial_id != self.request_id:
             raise ValueError("Preview trial identity differs")
+        if self.error is not None and self.status != "blocked":
+            raise ValueError("Only a blocked preview has a rejection diagnostic")
         return self
 
 
@@ -151,28 +154,59 @@ def _read_preview(path: Path, job_id: str, identifier: str) -> ReviewPreview:
         state = ReviewPreview.model_validate(plan["state"])
         if state.request_id != identifier or state.source_job_id != job_id:
             raise ValueError("Preview identity differs")
+        source = _source(_folder(job_id))
+        if plan["identity"] != dict(source_manifest_sha256=review.digest(source.manifest_path), policy=state.policy):
+            raise ValueError("Preview source changed")
+        info = source.manifest.info
+        expected_counts = (info.raw_note_count, info.zero_duration_count, info.positive_note_count)
+        if (state.raw_note_count, state.excluded_note_count, state.retained_note_count) != expected_counts:
+            raise ValueError("Preview source counts differ")
+        if "preview_sha256" in plan and review.digest(path/"preview.mid") != plan["preview_sha256"]:
+            raise ValueError("Retained candidate changed")
         ready = path/"result.json"
+        recovered = False
         if ready.is_file():
             state = ReviewPreview.model_validate_json(review.read_bytes(ready))
             if state.request_id != identifier or state.source_job_id != job_id:
                 raise ValueError("Result identity differs")
+            if (state.raw_note_count, state.excluded_note_count, state.retained_note_count) != expected_counts:
+                raise ValueError("Preview result counts differ")
         else:
             summary_path = midi_trials._base_dir()/identifier/"summary.json"
             if summary_path.is_file():
-                source = _source(_folder(job_id))
-                if plan["identity"] != dict(source_manifest_sha256=review.digest(source.manifest_path), policy=state.policy):
-                    raise ValueError("Preview source changed before completion was recorded")
                 summary = midi_trials._read_summary(midi_trials._trial_dir(identifier))
-                if summary.input_sha256 != review.digest(path/"preview.mid") or summary.input_note_count != state.retained_note_count:
+                if summary.trial_id != identifier or summary.input_sha256 != review.digest(path/"preview.mid") or summary.input_note_count != state.retained_note_count:
                     raise ValueError("Saved candidate differs from preview plan")
                 state = ReviewPreview.model_validate({**state.model_dump(),
                     "status": "completed" if summary.status == "completed" else "blocked",
                     "midi_trial_id": identifier if summary.status == "completed" else None})
-                trial._write_json(ready, state.model_dump(mode="json"))
+                recovered = True
+            elif (path/"preview.mid").is_file():
+                # Older versions wrote pending before returning an import 422.
+                # Revalidate retained bytes under the same lock, without ever
+                # regenerating the candidate or rerunning inference/conversion.
+                try:
+                    midi_trials._preflight(review.read_bytes(path/"preview.mid"))
+                except HTTPException as exc:
+                    if exc.status_code != 422:
+                        raise
+                    state = state.model_copy(update={"status": "blocked",
+                        "error": midi_trials.MidiTrialError.model_validate(exc.detail)})
+                    recovered = True
         if state.status == "completed":
-            summary = midi_trials._read_summary(midi_trials._trial_dir(identifier))
-            if summary.input_sha256 != review.digest(path/"preview.mid") or summary.input_note_count != state.retained_note_count:
+            saved = midi_trials._trial_dir(identifier)
+            summary = midi_trials._read_summary(saved)
+            if summary.trial_id != identifier or summary.status != "completed" or summary.input_sha256 != review.digest(path/"preview.mid") or summary.input_note_count != state.retained_note_count:
                 raise ValueError("Saved candidate changed")
+            for artifact in summary.artifacts:
+                artifact_path = midi_trials._artifact_path(saved, artifact.key)
+                if artifact_path is None or artifact_path.stat().st_size != artifact.bytes or midi_trials._sha(artifact_path) != artifact.sha256:
+                    raise ValueError("Saved candidate artifact changed")
+            original = next((a for a in summary.artifacts if a.key == "original-midi"), None)
+            if original is None or original.sha256 != summary.input_sha256:
+                raise ValueError("Saved candidate source differs")
+        if recovered:
+            trial._write_json(ready, state.model_dump(mode="json"))
         return state
     except (OSError, ValueError, KeyError):
         trial._reject(409, "review_preview_incomplete", "候補の記録が不完全です。重複作成せず、保存済み記録を確認してください。")
@@ -206,7 +240,7 @@ def create_review_preview(job_id: str, request_id: str = Form(...),
             plan = json.loads(review.read_bytes(path/"request.json"))
             if plan["identity"] != identity:
                 trial._reject(409, "review_request_conflict", "This preview ID refers to different source output.")
-            if state.status != "completed":
+            if state.status == "pending":
                 trial._reject(409, "review_preview_incomplete", "候補の作成結果を確認中です。同じ候補IDで確認してください。")
             return state
         if (midi_trials._base_dir()/request_id).exists():
@@ -222,15 +256,26 @@ def create_review_preview(job_id: str, request_id: str = Form(...),
         trial._write_json(path/"request.json", dict(identity=identity, state=state.model_dump(mode="json")))
         midi = path/"preview.mid"
         _literal_midi(midi, positive)
+        trial._write_json(path/"request.json", dict(identity=identity, state=state.model_dump(mode="json"),
+                                                   preview_sha256=review.digest(midi)))
         trial._write_json(path/"excluded-zero-duration-rows.json", [note for note in notes if note["offset"] == note["onset"]])
         config = BassOutputConfig.model_validate(json.loads(review.read_bytes(folder/"request.json"))["config"])
         disclosure = (f"明示選択した別版：全{info.raw_note_count}音のうちゼロ長{info.zero_duration_count}件を除外。"
                       f"残る{info.positive_note_count}音の音高・開始・終了は保持。元の全音符・トークン・生MIDIは保存されています。正解精度は未確認です。")
-        converted = midi_trials.import_midi_bytes(midi.read_bytes(), filename=f"確認用別版_ゼロ長{info.zero_duration_count}件を除外.mid",
-            config=config, source_kind="local-midi", preview_requested=False,
-            trial_id=request_id, additional_warnings=(disclosure,))
+        try:
+            converted = midi_trials.import_midi_bytes(midi.read_bytes(), filename=f"確認用別版_ゼロ長{info.zero_duration_count}件を除外.mid",
+                config=config, source_kind="local-midi", preview_requested=False,
+                trial_id=request_id, additional_warnings=(disclosure,))
+        except HTTPException as exc:
+            if exc.status_code != 422:
+                raise
+            state = state.model_copy(update={"status": "blocked",
+                "error": midi_trials.MidiTrialError.model_validate(exc.detail)})
+            trial._write_json(path/"result.json", state.model_dump(mode="json"))
+            return state
         if isinstance(converted, JSONResponse) or converted.status != "completed":
-            state = state.model_copy(update={"status": "blocked"})
+            state = state.model_copy(update={"status": "blocked", "error": midi_trials.MidiTrialError(
+                code="export_failed", message="候補MIDIは保存しましたが譜面出力に失敗しました。元出力と候補は保持しています。同じ候補IDで保存済み結果を確認してください。")})
         else:
             # Recheck all source hashes after conversion; never authorize a candidate from a changing source.
             _source(folder)

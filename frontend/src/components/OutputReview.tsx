@@ -42,7 +42,13 @@ export default function OutputReview({ jobId, info }: { jobId: string; info: Out
       if (value.status === "completed" && typeof value.midi_trial_id === "string" && value.midi_trial_id === id && UUID.test(value.midi_trial_id))
         setState({kind:"completed",id,trialId:value.midi_trial_id});
       else if (value.status === "pending" && value.midi_trial_id === null) setState({kind:"pending",id});
-      else if (value.status === "blocked" && value.midi_trial_id === null) setState({kind:"blocked",id,message:"候補の譜面化を停止しました。元の全出力と候補の記録は保持されています。"});
+      else if (value.status === "blocked" && value.midi_trial_id === null) {
+        const error = value.error;
+        const reason = record(error) && typeof error.message === "string" && error.message.trim()
+          ? error.message : "候補の譜面化を停止しました。元の全出力と候補の記録は保持されています。";
+        const code = record(error) && typeof error.code === "string" && /^[a-z0-9_]{1,64}$/.test(error.code) ? ` [${error.code}]` : "";
+        setState({kind:"blocked",id,message:`候補の記録は受付済みです。${reason}${code} 同じ候補IDで確認できます。再推論は行いません。`});
+      }
       else throw new Error("候補の状態を確認できません。");
     } catch (cause) {
       if (control.signal.aborted || current !== generation.current) return;
@@ -72,7 +78,7 @@ export default function OutputReview({ jobId, info }: { jobId: string; info: Out
     {state.kind === "working" && <p role="status">保存済み出力から候補を確認中…</p>}
     {(state.kind === "unknown" || state.kind === "blocked" || state.kind === "rejected") && <p role="alert">{state.message}</p>}
     {state.kind === "pending" && <p role="status">候補を作成中です。再推論は行っていません。</p>}
-    {(state.kind === "unknown" || state.kind === "pending") && <button onClick={()=>{void load(state.id,false);}}>同じ候補IDを確認</button>}
+    {(state.kind === "unknown" || state.kind === "pending" || state.kind === "blocked") && <button onClick={()=>{void load(state.id,false);}}>同じ候補IDを確認</button>}
     {state.kind === "completed" && <p><Link to={`/midi-trial/saved/${state.trialId}?view=staff&spacing=time`}>{info.positive_note_count}音の別版を試聴・譜面で確認</Link></p>}
   </section>;
 }

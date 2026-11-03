@@ -74,6 +74,33 @@ def test_notation_clock_is_read_only_exact_and_repeatable(client,tmp_path):
     assert before=={str(p.relative_to(folder)):p.read_bytes() for p in folder.rglob("*") if p.is_file()}
 
 
+@pytest.mark.parametrize(('kind','code'),[
+    ('overlap','midi_same_pitch_overlap'),('zero','midi_nonpositive_duration'),
+    ('unmatched','midi_unmatched_note_off'),('unclosed','midi_unclosed_note_on'),
+    ('drum','midi_drum_notes'),('low','midi_pitch_range')])
+def test_strict_note_refusals_identify_boundary_without_allocating_trial(client,tmp_path,kind,code):
+    events=[(0,100,28),(50,150,28)] if kind=='overlap' else [(0,0 if kind=='zero' else 100,11 if kind=='low' else 28)]
+    raw=mido.MidiFile(file=io.BytesIO(_midi(events)))
+    track=raw.tracks[0]
+    if kind=='zero':
+        # This fixture's generic builder sorts releases first. A literal
+        # zero-length pair must instead retain its own attack before release.
+        on=next(m for m in track if m.type=='note_on');off=next(m for m in track if m.type=='note_off')
+        track[:]=[m for m in track if m.type not in {'note_on','note_off','end_of_track'}]+[on,off,mido.MetaMessage('end_of_track')]
+    elif kind=='unmatched':track[:]=[m for m in track if m.type!='note_on']
+    elif kind=='unclosed':track[:]=[m for m in track if m.type!='note_off']
+    elif kind=='drum':
+        for message in track:
+            if hasattr(message,'channel'):message.channel=9
+    stream=io.BytesIO();raw.save(file=stream)
+    result=_post(client,data=stream.getvalue())
+    assert result.status_code==422,result.text
+    error=result.json()['detail']
+    assert error['code']==code and error['message']
+    assert error['diagnostic']['boundary']=='saved_midi_note_stream'
+    assert not (tmp_path/'midi-trials').exists()
+
+
 @pytest.mark.parametrize("key",["original-midi","storage-clock-xml"])
 def test_notation_clock_rejects_changed_source_artifacts(client,tmp_path,key):
     summary=_post(client).json()
