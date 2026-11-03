@@ -120,7 +120,7 @@ export default function MuscriptorTrial(): JSX.Element {
       else { submitting.current = false; setBusy(false); setPendingId(null); storeRequest(null); if (body.status === "failed") setError(body.error ? `${body.error.code}: ${body.error.message}` : "実験処理が失敗しました。"); }
     } catch (cause) { if (current === generation.current && !abort.signal.aborted) { setBusy(false); setError(`実行結果が不明です。新しい実行は開始せず、同じ試行IDの状態を確認してください: ${String(cause)}`); } }
   };
-  return <article>
+  return <article className="product-page">
     <h2>MuScriptor音源実験（明示選択・ローカル限定）</h2>
     <p>10秒まで・10 MiB以下のWAV/FLACを使う短い実験です。音源をローカルで処理します。モデル資材の自動取得は行いません。配置済み資材がない場合は実行できません。</p>
     <p>この経路は音源から新しく推論します。既存の保存MIDIを変換する経路とは別です。実行開始後の処理キャンセルには対応していません。ページを閉じてもローカル処理は継続します。</p>

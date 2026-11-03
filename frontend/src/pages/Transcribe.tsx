@@ -68,6 +68,8 @@ export default function Transcribe(): JSX.Element {
   const healthAbort = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const statusPanel = useRef<HTMLElement>(null);
+  const errorPanel = useRef<HTMLParagraphElement>(null);
   const locked = busy || (id !== null && (!job || job.status === "running"));
   const clear = (): void => { epoch.current++; abort.current?.abort(); if (timer.current) clearTimeout(timer.current); timer.current = null; };
   const refreshHealth = async (signal?: AbortSignal): Promise<void> => {
@@ -96,6 +98,12 @@ export default function Transcribe(): JSX.Element {
     const pending = initialJob(); if (pending) { setBusy(true); void poll(pending, epoch.current); }
     return () => { control.abort(); healthAbort.current?.abort(); clear(); };
   }, []);
+  // Bring a newly submitted/recovered job or an actionable error into view.
+  // Polling the same job never steals focus from its recovery controls.
+  useEffect(() => {
+    if (error) errorPanel.current?.focus();
+    else if (id) statusPanel.current?.focus();
+  }, [id, error]);
   const execute = async (url: string, data: FormData, requestId: string): Promise<void> => {
     const priorJob = job; const priorId = id;
     clear(); const generation = epoch.current; const control = new AbortController(); abort.current = control;
@@ -136,33 +144,57 @@ export default function Transcribe(): JSX.Element {
     const data = new FormData(); data.append("request_id", next);
     void execute(`${ROOT}/${id}/retry`, data, next);
   };
-  return <article className="workflow">
-    <h2>音源からベースTABを作る</h2>
-    <p>MuScriptor smallで採譜します。音源 → ベース分離 → 採譜 → 試聴・TAB → 保存。</p>
-    <section aria-label="サービス状態"><h3>サービス状態</h3><p>Web: 接続済み / API: {health ? "接続済み" : "未確認"} / モデル: {health?.model_assets === "configured" ? "配置済み（GPUは実行時確認）" : "利用できません"}</p>
-      {healthError && <p role="alert">{healthError}</p>}{health?.reasons.map((r, i) => <p key={i}>{r.message}</p>)}
-      <button onClick={() => { void refreshHealth(); }}>接続を再確認</button>
-      <p>この経路にRedis/Celeryは不要です。配置済みローカル資材とGPUが必要です。Basic Pitchへの自動切替はしません。</p>
+  const step = !id ? 1 : job && job.status !== "running" ? 3 : 2;
+  const statusTone = job?.status === "needs_review" ? "review" : error ? "attention" : job?.status ?? "pending";
+  const statusTitle = job?.status === "completed" ? "採譜結果を保存しました" : job?.status === "needs_review" ? "譜面化の前に確認してください" : job?.status === "failed" ? "処理に失敗しました" : job?.status === "cancelled" ? "処理を取り消しました" : error ? "応答は未確認です" : "採譜の進行状況";
+  const primaryFiles = job?.available_files.filter(name => !name.endsWith(".json") && !name.endsWith(".jsonl")) ?? [];
+  const detailFiles = job?.available_files.filter(name => name.endsWith(".json") || name.endsWith(".jsonl")) ?? [];
+  const download = (name: string): JSX.Element => <li key={name}><a href={`${ROOT}/${id}/files/${name}`}>{artifactLabels[name]}</a></li>;
+  return <article className="product-page workflow">
+    <div className="workflow-heading">
+      <div><p className="eyebrow">AUDIO TO BASS TAB</p><h2>音源からベースTABを作る</h2><p className="workflow-intro">ベースラインを、弾ける形へ。<br />音源を選び、採譜した音を聴きながら五線譜・TABで確かめましょう。</p></div>
+      <div className="audio-motif" aria-hidden="true">{[16, 30, 44, 24, 58, 82, 46, 66, 100, 72, 48, 88, 60, 36, 68, 44, 24, 14].map((height, index) => <span key={index} style={{ height: `${height}%` }} />)}</div>
+    </div>
+    <ol className="workflow-steps" aria-label="採譜の流れ">
+      {["音源と範囲を選ぶ", "分離して採譜", "確認・試聴・保存"].map((label, index) => <li key={label} aria-current={step === index + 1 ? "step" : undefined} className={step > index + 1 ? "step-done" : ""}><span aria-hidden="true">0{index + 1}</span>{label}</li>)}
+    </ol>
+    <section className="service-card" aria-label="サービス状態">
+      <div className="service-card-heading"><h3><span className={`service-dot ${health?.model_assets === "configured" ? "service-dot-ready" : ""}`} aria-hidden="true" />サービス状態</h3><button onClick={() => { void refreshHealth(); }}>接続を再確認</button></div>
+      <p>Web: 接続済み / API: {health ? "接続済み" : "未確認"} / モデル: {health?.model_assets === "configured" ? "配置済み（GPUは実行時確認）" : health ? "利用できません" : "未確認"}</p>
+      {healthError && <p role="alert">{healthError}。接続を再確認してください。</p>}{health?.reasons.map((r, i) => <p className="service-reason" key={i}>{r.message}</p>)}
+      <p className="service-fallback">MuScriptor smallで採譜します。Basic Pitchへの自動切替はしません。</p>
+      <details><summary>処理環境の詳細</summary><p>この経路にRedis/Celeryは不要です。配置済みローカル資材とGPUが必要です。</p></details>
     </section>
-    <form onSubmit={submit}><fieldset disabled={locked || id !== null}><legend>1. 音源と範囲</legend>
-      <label>音源 WAV/FLAC/M4A/Opus <input type="file" accept=".wav,.flac,.m4a,.opus,.ogg" onChange={(e) => { const selected = e.target.files?.[0] ?? null; setFile(selected); setJob(null); setError(selected?.size === 0 ? EMPTY_AUDIO : ""); }} /></label>
-      <p>M4AはAAC/ALAC、.opus/.oggはOggコンテナのOpusに対応しています。このPC内のffmpegでPCMへ変換し、アップロード原本はそのまま保存します。</p>
-      <p><label>処理範囲 <select value={scope} onChange={(e) => setScope(e.target.value)}><option value="full">全曲（最大10分）</option><option value="range">区間を指定</option></select></label></p>
-      {scope === "range" && <p><label>開始秒 <input type="number" min="0" step="0.01" value={start} onChange={(e) => setStart(e.target.value)} /></label> <label>終了秒 <input type="number" min="0" step="0.01" value={end} onChange={(e) => setEnd(e.target.value)} /></label></p>}
-      <p>最大512 MiB、処理範囲は600秒以内です。区間の音符時刻は選択開始を0秒とし、元音源と選択位置は保持します。</p>
-      <label>弦構成 <select value={profile} onChange={(e) => setProfile(e.target.value)}><option value="bass4">4弦 E1–G2</option><option value="bass5">5弦 B0–G2</option></select></label>
-      <p><label><input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} /> 使用権のある音源を非商用で処理することを確認しました</label></p>
-    </fieldset><button type="submit" disabled={locked || id !== null || !file || file.size === 0 || !rights || health?.model_assets !== "configured"}>{locked ? "処理結果を確認中…" : "2. 分離して採譜する"}</button></form>
-    {error && <p role="alert">{error}</p>}
-    {id && <section aria-label="処理状況"><p>処理ID: {id}</p><p role="status">{job?.status === "needs_review" ? "推論出力を保存済み・譜面化の確認待ち" : job ? `${stages[job.stage] ?? job.stage} / ${job.status}` : "応答確認待ち"}</p>
-      {job?.status === "running" && <><p>{job.total_chunks ? `採譜区間 ${job.completed_chunks} / ${job.total_chunks}` : "処理中（進捗割合は未確定）"}{job.cancel_requested ? " / 取消要求済み。停止を確認中…" : ""}</p><button disabled={job.cancel_requested} onClick={() => { void cancel(); }}>処理を取り消す</button></>}
+    <form onSubmit={submit} className="source-form">
+      <fieldset disabled={locked || id !== null}><legend>1. 音源と範囲</legend>
+        <div className="source-picker"><span className="source-picker-symbol" aria-hidden="true">↑</span><label>音源 WAV/FLAC/M4A/Opus <input type="file" accept=".wav,.flac,.m4a,.opus,.ogg" aria-describedby="source-limits" onChange={(e) => { const selected = e.target.files?.[0] ?? null; setFile(selected); setJob(null); setError(selected?.size === 0 ? EMPTY_AUDIO : ""); }} /></label>
+          <p id="source-limits">最大512 MiB・10分まで。使用権のある音源を選んでください。</p>
+          <p className="source-selection">{file ? `${file.name} / ${(file.size / 1024 / 1024).toFixed(2)} MiB` : "ファイルはまだ選択されていません"}</p>
+        </div>
+        <div className="source-options"><label>処理範囲 <select value={scope} onChange={(e) => setScope(e.target.value)}><option value="full">全曲（最大10分）</option><option value="range">区間を指定</option></select></label>
+          <label>弦構成 <select value={profile} onChange={(e) => setProfile(e.target.value)}><option value="bass4">4弦 E1–G2</option><option value="bass5">5弦 B0–G2</option></select></label>
+        </div>
+        {scope === "range" && <div className="range-options"><label>開始秒 <input type="number" min="0" step="0.01" value={start} onChange={(e) => setStart(e.target.value)} /></label><span aria-hidden="true">〜</span><label>終了秒 <input type="number" min="0" step="0.01" value={end} onChange={(e) => setEnd(e.target.value)} /></label><p>処理範囲は600秒以内。選択開始を0秒とし、元音源と選択位置を保持します。</p></div>}
+        <details><summary>対応形式と元データの扱い</summary><p>M4AはAAC/ALAC、.opus/.oggはOggコンテナのOpusに対応しています。処理環境のffmpegでPCMへ変換し、アップロード原本はそのまま保存します。区間の音符時刻は選択開始を0秒とし、元音源と選択位置は保持します。</p></details>
+        <label className="rights-confirmation"><input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} /> 使用権のある音源を非商用で処理することを確認しました</label>
+      </fieldset>
+      <div className="submit-row"><button type="submit" disabled={locked || id !== null || !file || file.size === 0 || !rights || health?.model_assets !== "configured"}>{locked ? "処理結果を確認中…" : "2. 分離して採譜する"}</button><p>{id ? "現在の処理を確認できます。別の音源は結果欄から選べます。" : "未送信・未保存。採譜を開始すると原音源と結果を保存します。"}</p></div>
+    </form>
+    {error && <p ref={errorPanel} role="alert" tabIndex={-1}>{error}</p>}
+    {id && <section ref={statusPanel} tabIndex={-1} className={`job-card job-card-${statusTone}`} aria-label="処理状況">
+      <p className="eyebrow">TRANSCRIPTION STATUS</p><h3>{statusTitle}</h3>
+      <p className="job-status" role="status">{job?.status === "needs_review" ? "推論出力を保存済み・譜面化の確認待ち" : job ? `${stages[job.stage] ?? job.stage} / ${{ running: "処理中", completed: "完了", failed: "失敗", cancelled: "取消済み" }[job.status]}` : "応答確認待ち"}</p>
+      <p className="job-id">処理ID: {id}</p>
+      {error && job?.status === "running" && <p className="page-note">進捗は最後に確認できた状態です。同じ処理IDで最新の状態を確認してください。</p>}
+      {job?.status === "running" && <><p>{job.total_chunks ? `採譜区間 ${job.completed_chunks} / ${job.total_chunks}` : "処理中（進捗割合は未確定）"}{job.cancel_requested ? " / 取消要求済み。停止を確認中…" : ""}</p>{job.total_chunks > 0 && <progress aria-label="採譜区間の進捗" value={job.completed_chunks} max={job.total_chunks} />}<button disabled={job.cancel_requested} onClick={() => { void cancel(); }}>処理を取り消す</button></>}
       {!busy && locked && <button onClick={() => { clear(); setBusy(true); void poll(id, epoch.current); }}>同じ処理IDを再確認</button>}
       {job && (job.status === "failed" || job.status === "cancelled") && <><p>{job.error?.message}</p><button disabled={busy || health?.model_assets !== "configured"} onClick={retry}>新しい試行として再実行（検証済み分離を再利用）</button></>}
-      {job?.status === "completed" && <p><Link to={`/midi-trial/saved/${job.midi_trial_id}`}>3. 試聴・五線譜・TAB・保存へ</Link></p>}
+      {job?.status === "completed" && <><p>まず試聴して音符を確認してください。採譜精度は未検証です。</p><p><Link className="action-link action-link-primary" to={`/midi-trial/saved/${job.midi_trial_id}`}>3. 試聴・五線譜・TAB・保存へ</Link></p></>}
       {job?.status === "needs_review" && <OutputReview key={id} jobId={id} info={job.review} />}
-      {job && job.status !== "running" && <><p>{job.available_files.map((name) => <a style={{ marginRight: 16 }} key={name} href={`${ROOT}/${id}/files/${name}`}>{artifactLabels[name]}</a>)}</p><button onClick={() => { clear(); sending.current = false; setId(null); setJob(null); setError(""); try { sessionStorage.removeItem(KEY); } catch { /* No stored state. */ } }}>別の音源を選ぶ</button></>}
+      {job && job.status !== "running" && <>{primaryFiles.length > 0 && <div className="artifact-group"><h4>保存済みファイル</h4><ul className="artifact-links">{primaryFiles.map(download)}</ul></div>}{detailFiles.length > 0 && <details><summary>音符JSON・推論記録を保存</summary><ul className="artifact-links">{detailFiles.map(download)}</ul></details>}<button onClick={() => { clear(); sending.current = false; setId(null); setJob(null); setError(""); try { sessionStorage.removeItem(KEY); } catch { /* No stored state. */ } }}>別の音源を選ぶ</button></>}
     </section>}
-    <p>原音符の開始・終了・音高を保持し、運指と量子化は結果画面で別版として選べます。試聴の減衰は既定OFFです。四分音符だけの旧GP5プレビューと、拍子・テンポを明示するGP5は別の出力です。</p>
-    <p>長曲の実モデル動作・採譜精度は未検証です。公式の区間継続を使いますが、境界で正しい音が得られることを保証しません。不正な出力は修復せず失敗として保存します。</p>
+    <aside className="precision-note" aria-label="採譜結果について"><h3>採譜結果は、耳でも確かめてください</h3><p>長曲の実モデル動作・採譜精度は未検証です。公式の区間継続を使いますが、境界で正しい音が得られることを保証しません。不正な出力は修復せず失敗として保存します。</p><p>原音符の開始・終了・音高を保持し、運指と量子化は結果画面で別版として選べます。試聴の減衰は既定OFFです。</p>
+      <details><summary>GP5出力について</summary><p>四分音符だけの旧GP5プレビューと、拍子・テンポを明示するGP5は別の出力です。</p></details>
+    </aside>
   </article>;
 }

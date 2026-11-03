@@ -168,3 +168,31 @@ it("does not POST without a secure request identifier", async () => {
   mount(); await fill(); fireEvent.click(screen.getByRole("button", { name: /分離して/ }));
   expect(await screen.findByRole("alert")).toHaveTextContent("安全な処理ID"); expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("identifies unsaved input and advances the accessible step and progress after submission", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response(health)).mockResolvedValueOnce(response(running)));
+  mount(); await fill();
+  expect(screen.getByText(/未送信・未保存/)).toBeVisible();
+  const steps = screen.getByRole("list", { name: "採譜の流れ" });
+  expect(steps.querySelector('[aria-current="step"]')).toHaveTextContent("音源と範囲を選ぶ");
+  fireEvent.click(screen.getByRole("button", { name: /分離して採譜/ }));
+  expect(await screen.findByRole("progressbar", { name: "採譜区間の進捗" })).toHaveAttribute("value", "1");
+  expect(screen.getByRole("region", { name: "処理状況" })).toHaveFocus();
+  expect(steps.querySelector('[aria-current="step"]')).toHaveTextContent("分離して採譜");
+});
+
+it("keeps a completed result and precision warning visible while grouping diagnostic downloads", async () => {
+  sessionStorage.setItem("stem2tab.song.request", id);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response(health)).mockResolvedValueOnce(response({ ...running, status: "completed", stage: "completed", midi_trial_id: id, available_files: ["performance.mid", "model-notes.json"] })));
+  mount();
+  expect(await screen.findByRole("heading", { name: "採譜結果を保存しました" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "3. 試聴・五線譜・TAB・保存へ" })).toHaveAttribute("href", `/midi-trial/saved/${id}`);
+  expect(screen.getByRole("link", { name: "原MIDIを保存" })).toBeVisible();
+  const disclosure = screen.getByText("音符JSON・推論記録を保存").closest("details");
+  expect(disclosure).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByText("音符JSON・推論記録を保存"));
+  expect(disclosure).toHaveAttribute("open");
+  expect(screen.getByRole("link", { name: "元の全音符JSONを保存" })).toHaveAttribute("href", `/api/v1/transcriptions/${id}/files/model-notes.json`);
+  expect(screen.getByText(/長曲の実モデル動作・採譜精度は未検証/)).toBeVisible();
+  expect(screen.getByRole("list", { name: "採譜の流れ" }).querySelector('[aria-current="step"]')).toHaveTextContent("確認・試聴・保存");
+});
