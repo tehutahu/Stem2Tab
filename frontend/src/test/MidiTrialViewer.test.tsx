@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MidiTrialViewer from "../components/MidiTrialViewer";
+vi.mock("../utils/readableEngraving", () => ({ installReadableEngravingLayout: vi.fn() }));
 const mock = vi.hoisted(() => ({ apis: [] as any[], loadResult: true }));
 vi.mock("@coderline/alphatab", () => ({ model: { Clef: { F4: 3 } }, AlphaTabApi: class {
   scoreLoaded = event(); renderStarted = event(); renderFinished = event(); playerReady = event(); playerStateChanged = event(); playerPositionChanged = event(); error = event();

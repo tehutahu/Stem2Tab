@@ -6,6 +6,7 @@ import { applyBassTab, TabUnavailableError } from "../utils/scoreTab";
 import type { BassTabConfig } from "../utils/bassTabConfig";
 import { buildTimeScore } from "../utils/timeScore";
 import { installLibraryTimeLayout, buildLibraryTimeCursor, type LibraryTimeGeometry } from "../utils/libraryTimeLayout";
+import { installReadableEngravingLayout } from "../utils/readableEngraving";
 import { PlaybackTransport } from "../utils/playbackTransport";
 import "./MidiTrialViewer.css";
 
@@ -145,6 +146,9 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
         if (spacing === "time") {
           try { buildTimeScore(score,tabApplied); timeGeometry = installLibraryTimeLayout(api!); }
           catch(cause) { fail(cause); return; }
+        } else {
+          try { installReadableEngravingLayout(api!); }
+          catch (cause) { fail(cause); }
         }
       });
       api.renderStarted.on(() => { if (alive) {
