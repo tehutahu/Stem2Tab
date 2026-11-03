@@ -74,8 +74,8 @@ function Demo(): JSX.Element {
 
   return (
     <section className="product-page" style={{ display: "grid", gap: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
           <h2 style={{ margin: 0 }}>デモモード</h2>
           <p style={{ margin: 0, color: "#4b5563" }}>ジョブID: {jobId}</p>
           <p style={{ margin: 0, color: "#4b5563" }}>
