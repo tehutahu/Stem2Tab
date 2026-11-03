@@ -48,3 +48,28 @@ it("validates the preserved-output count contract",()=>{
   expect(()=>parseOutputReview({...info,kind:"zero_duration",notes_modified:true})).toThrow();
   expect(()=>parseOutputReview({...info,kind:"zero_duration",notes_modified:false,positive_note_count:3})).toThrow();
 });
+it("keeps an accepted blocked candidate ID and displays the saved cause on same-ID recovery",async()=>{
+  const blocked={...completed,status:"blocked",midi_trial_id:null,
+    error:{code:"midi_same_pitch_overlap",message:"同じ音高の音が重なっています。元音符を確認してください。"}};
+  const fetch=vi.fn().mockResolvedValue(response(blocked,201));vi.stubGlobal("fetch",fetch);mount();
+  fireEvent.click(screen.getByRole("button",{name:/別版を作成/}));
+  expect(await screen.findByRole("alert")).toHaveTextContent("候補の記録は受付済み");
+  expect(screen.getByRole("alert")).toHaveTextContent("元音符を確認してください");
+  expect(screen.getByRole("alert")).toHaveTextContent("midi_same_pitch_overlap");
+  expect(sessionStorage.getItem(key)).toBe(id);
+  expect(screen.getByRole("button",{name:/別版を作成/})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"同じ候補IDを確認"}));
+  await screen.findByRole("alert");
+  expect(fetch.mock.calls.map(c=>c[1]?.method)).toEqual(["POST","GET"]);
+  expect(screen.queryByRole("link")).toBeNull();expect(sessionStorage.getItem(key)).toBe(id);
+});
+it("recovers a lost response as a blocked receipt without making another candidate",async()=>{
+  const blocked={...completed,status:"blocked",midi_trial_id:null,
+    error:{code:"midi_multiple_instruments",message:"複数の楽器があります。明示選択した別MIDIを用意してください。"}};
+  const fetch=vi.fn().mockRejectedValueOnce(new TypeError("connection lost")).mockResolvedValueOnce(response(blocked));
+  vi.stubGlobal("fetch",fetch);mount();fireEvent.click(screen.getByRole("button",{name:/別版を作成/}));
+  await screen.findByRole("alert");fireEvent.click(screen.getByRole("button",{name:"同じ候補IDを確認"}));
+  expect(await screen.findByText(/候補の記録は受付済み/)).toHaveTextContent("複数の楽器");
+  expect(fetch.mock.calls.map(c=>c[1]?.method)).toEqual(["POST","GET"]);
+  expect(sessionStorage.getItem(key)).toBe(id);
+});
