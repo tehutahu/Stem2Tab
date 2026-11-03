@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 vi.mock("../pages/MidiTrial", () => ({ default: ({ jobSource }: { jobSource?: { jobId: string; name: string } }) => <p data-testid="import-source">{jobSource?.jobId} / {jobSource?.name}</p> }));
@@ -9,4 +9,24 @@ it("connects normal-job results to the shared MIDI workflow", () => {
   expect(screen.getByRole("navigation", { name: "作業の入口" })).toBeVisible();
   expect(screen.getByRole("link", { name: "音源から採譜（MuScriptor）" })).toHaveAttribute("href", "/");
   expect(screen.getByRole("link", { name: "MuScriptorで採譜（実験・配置確認）" })).toHaveAttribute("href", "/muscriptor-trial");
+});
+
+it("keeps normal navigation visible and experimental routes in an operable disclosure", () => {
+  render(<MemoryRouter initialEntries={["/midi-trial"]}><App /></MemoryRouter>);
+  expect(screen.getByRole("link", { name: "MIDIから五線譜・TAB・任意補正" })).toHaveAttribute("aria-current", "page");
+  const summary = screen.getByText("実験・従来方式");
+  const disclosure = summary.closest("details");
+  expect(disclosure).not.toHaveAttribute("open");
+  fireEvent.click(summary);
+  expect(disclosure).toHaveAttribute("open");
+  expect(screen.getByRole("link", { name: "Basic Pitch（従来方式・別実行）" })).toHaveAttribute("href", "/basic-pitch");
+  expect(screen.getByRole("link", { name: "本文へ移動" })).toHaveAttribute("href", "#main-content");
+  expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
+});
+
+it("opens the experimental navigation when visiting its route directly", () => {
+  render(<MemoryRouter initialEntries={["/basic-pitch"]}><App /></MemoryRouter>);
+  expect(screen.getByText("実験・従来方式").closest("details")).toHaveAttribute("open");
+  expect(screen.getByRole("link", { name: "Basic Pitch（従来方式・別実行）" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("heading", { name: "Basic Pitchで採譜する" })).toBeVisible();
 });

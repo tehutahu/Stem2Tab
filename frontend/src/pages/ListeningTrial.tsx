@@ -82,7 +82,7 @@ export default function ListeningTrial({ trialId }: { trialId: string }): JSX.El
   }, [trialId]);
   const act = (operation: () => void | Promise<void>): void => { setError(""); try { void Promise.resolve(operation()).catch(cause => setError(String(cause))); } catch (cause) { setError(String(cause)); } };
   const availableTracks: TrackKey[] = summary ? summary.tracks.map(track => track.key) : ["original", "bass", "synth"];
-  return <article>
+  return <article className="product-page">
     <h2>保存出力の区間比較（ローカル）</h2>
     <p>原曲 → 分離ベース → 採譜再生を同じ秒位置で切り替えます。再推論はしません。正解音符は未検証です。</p>
     <p>採譜再生は元MIDIの音高・時刻から作った固定音色です。音色・音量の一致は評価対象外で、音量正規化は行いません。</p>
@@ -99,7 +99,7 @@ export default function ListeningTrial({ trialId }: { trialId: string }): JSX.El
     </fieldset>
     {state && <p>適用中: {state.start.toFixed(2)}〜{state.end.toFixed(2)}秒 / ループ{state.loop ? "あり" : "なし"} / 現在 {state.position.toFixed(2)}秒</p>}
     <div style={{ display:"flex", gap:8, flexWrap:"wrap", margin:"12px 0" }}>{availableTracks.map(key => <button disabled={!ready} aria-pressed={state?.track===key} key={key} onClick={() => act(() => player.current?.select(key))}>{labels[key]}</button>)}</div>
-    <div style={{display:"flex",gap:8}}>
+    <div className="button-row">
       <button disabled={!ready} onClick={() => act(() => player.current?.play())}>比較を再生</button>
       <button disabled={!ready} onClick={() => act(() => player.current?.pause())}>比較を一時停止</button>
       <button disabled={!ready} onClick={() => act(() => player.current?.stop())}>比較を停止（区間先頭）</button>
