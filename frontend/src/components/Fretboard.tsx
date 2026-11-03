@@ -11,6 +11,7 @@ interface FretboardProps {
 
 function Fretboard({ activeNotes, strings = 4, frets = 12 }: FretboardProps): JSX.Element {
   return (
+    <div className="fretboard-scroll" tabIndex={0} role="region" aria-label="指板・横スクロール可能">
     <div
       style={{
         display: "grid",
@@ -60,6 +61,7 @@ function Fretboard({ activeNotes, strings = 4, frets = 12 }: FretboardProps): JS
           </div>
         );
       })}
+    </div>
     </div>
   );
 }

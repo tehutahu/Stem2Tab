@@ -667,3 +667,57 @@ Failed transcription status responses explain retained decoder timing diagnostic
 without rewriting status, notes or tokens. A zero-duration failure stays failed;
 no automatic exclusion, extension or retry is performed. Unreadable auxiliary
 diagnostics must not hide the original terminal failure.
+
+## System fixes with synthetic input
+
+Issues #16 through #19 have separate implementation and review records. The
+musical-clock checks compare exact XML note seconds, bar origins and tail rests;
+the MIDI rejection checks exercise producer ordering and durable same-ID receipts.
+Run the full backend unit suite, including every `test_evaluation_*.py` module:
+
+```sh
+cd backend
+PYTHONPATH=$PWD uv run --no-sync python -B -m pytest tests/unit -q -p no:cacheprovider
+```
+
+When reusing an editable environment from another checkout, set
+`UV_PROJECT_ENVIRONMENT` to that environment and keep this checkout on
+`PYTHONPATH`. Use `python -m pytest` so the selected source is imported.
+
+The frontend's real alphaTab checks cover viewport layout, note/cursor geometry,
+playback events, pickups and the exact-preview refusal boundary. Run the full
+frontend tests, build and TypeScript check before browser verification.
+`scripts/check_workflow_http.py` exercises the real loopback Web/API flow with
+mocked inference. `scripts/check_product_ui.mjs` covers accessible controls and
+workflow recovery with intercepted synthetic API responses.
+`frontend/scripts/check-responsive-score.py --base-url <preview origin>` checks
+the real built renderer and playback with synthetic score responses. Use the
+existing Playwright and Chromium installations; no package installation or model
+download is part of these checks. Vite's development-mode SDK worker URL is not
+the supported playback proof path; use `npm run build` followed by preview.
+
+### Show the branch locally without real recordings
+
+Use an isolated checkout and fresh output/data directories. From the repository
+root, with existing backend/frontend dependencies:
+
+```sh
+backend/.venv/bin/python scripts/create_system_preview.py --output-dir /tmp/stem2tab-ui-fixtures-new
+cd frontend
+npm run build
+cd ..
+python scripts/run_local.py --python backend/.venv/bin/python --api-port 8429 --web-port 4299 --data /tmp/stem2tab-ui-data-new
+```
+
+Open `http://127.0.0.1:4299/midi-trial`. Import either generated MIDI as a local
+MIDI with a 4-string bass profile. The pulse fixture uses a 60 BPM storage clock;
+its documented musical-clock example is 120 BPM, 4/4, origin 0.5 seconds.
+The dense fixture checks score scrolling and size controls. The generator refuses
+an existing output directory. The launcher refuses occupied ports and stops only
+its owned processes on exit. Use Ctrl-C to stop this pair; keep existing servers,
+recordings and result directories untouched.
+
+No configured transcription model is required for this saved-MIDI review. An
+unconfigured model remains an explicit unavailable state on the audio page.
+Synthetic browser checks establish system behavior, not real-song BPM accuracy,
+note accuracy, listening acceptance or human approval of the design.

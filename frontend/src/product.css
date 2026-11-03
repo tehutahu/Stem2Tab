@@ -70,6 +70,9 @@ button:disabled { cursor: default; }
 .product-page summary { cursor: pointer; font-size: 13px; font-weight: 650; line-height: 1.8; }
 .product-page details > p { font-size: 13px; color: var(--muted); }
 .product-page pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.product-page code, .product-page .midi-result > p, .product-page .midi-result > ul { overflow-wrap: anywhere; }
+.midi-result-table { max-width: 100%; overflow-x: auto; }
+.fretboard-scroll { max-width: 100%; min-width: 0; overflow-x: auto; contain: inline-size; }
 .product-page [role="alert"] { color: #873c26; background: #fff4ed; border: 1px solid #eac7b8; border-left: 4px solid #b45936; border-radius: 7px; padding: 14px 18px; overflow-wrap: anywhere; }
 .product-page > [role="status"] { padding: 14px 18px; border-radius: 7px; background: var(--soft); }
 .product-page button[aria-pressed="true"] { color: #fff; background: var(--accent-dark); }
