@@ -105,13 +105,13 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
       finally { if(gen===generation.current) {locked.current=false;setBusy(false);} }
     } catch(e) { setError(String(e)); }
   };
-  return <article>
+  return <article className="product-page">
     <h2>保存MIDIの運指・リズム別版（実験）</h2>
     <p>推論は実行しません。元MIDIと原時刻MusicXMLを保持し、選んだ後処理だけを新しい保存先へ出力します。</p>
     <p>実行中の取り消しには未対応です。通信中断・ページ離脱後は保存試行IDの結果を確認し、自動再実行はしません。</p>
     <p><a href={`/midi-trial/saved/${midiTrialId}`}>元MIDI・原時刻版へ戻る</a></p>
     <p><a href={`/midi-trial/saved/${midiTrialId}?view=tab`}>原時刻の五線譜＋TABを表示（保存済み弦設定）</a></p>
-    {source && <p>{source.original_filename} / {source.input_note_count}音 / SHA256 {source.input_sha256}</p>}
+    {source && <><p>{source.original_filename} / {source.input_note_count}音</p><details><summary>元MIDIの照合情報</summary><p>SHA256 {source.input_sha256}</p></details></>}
     <fieldset disabled={!source || busy || !!requestId}><legend>この別版の設定</legend>
       <label>弦設定 <select value={profile} onChange={e=>setProfile(e.target.value)}><option value="">明示選択</option><option value="bass4">4弦 E1 A1 D2 G2</option><option value="bass5">5弦 B0 E1 A1 D2 G2</option><option value="custom">カスタム（1〜7弦）</option></select></label>{" "}
       {profile==="custom" && <label>低音からのMIDIチューニング <input value={tuning} onChange={e=>setTuning(e.target.value)} placeholder="23,28,33,38,43,48" /></label>}
@@ -140,7 +140,7 @@ export default function NotationTrial({ midiTrialId }: { midiTrialId: string }):
       {result.error && <p role="alert">{result.error}</p>}
       {result.gp5_reason && <p role="alert">{result.gp5_reason}</p>}
       <h3>運指</h3><p>{result.fingering?.status} / 割当 {result.fingering?.mapped_event_count ?? "—"}音</p>
-      <pre>{JSON.stringify(result.fingering?.reasons,null,2)}</pre><pre>{JSON.stringify(result.fingering?.movement_comparison,null,2)}</pre>
+      <pre>{JSON.stringify(result.fingering?.reasons,null,2)}</pre><details><summary>運指の移動量を詳しく確認</summary><pre>{JSON.stringify(result.fingering?.movement_comparison,null,2)}</pre></details>
       <h3>リズム別版</h3><p>{result.rhythm?.status} / 変更音 {result.rhythm?.changed_event_count ?? "—"} / 開始最大 {result.rhythm?.max_absolute_start_change_ms ?? "—"}ms / 終了最大 {result.rhythm?.max_absolute_end_change_ms ?? "—"}ms</p>
       <p>{result.rhythm?.reasons?.join(", ")}</p>
       {!!result.rhythm?.events?.length && <details><summary>音ごとの変更量・拒否理由（全音符）</summary><table><thead><tr><th>番号</th><th>MIDI音高</th><th>開始変化ms</th><th>終了変化ms</th><th>理由</th></tr></thead><tbody>{result.rhythm.events.map(e=><tr key={e.input_ordinal}><td>{e.input_ordinal}</td><td>{e.midi}</td><td>{e.start_change_ms.toFixed(3)}</td><td>{e.end_change_ms.toFixed(3)}</td><td>{e.reasons.join(", ")}</td></tr>)}</tbody></table></details>}

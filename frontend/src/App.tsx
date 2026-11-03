@@ -1,4 +1,4 @@
-import { Link, Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
 
 import MidiTrial from "./pages/MidiTrial";
 import MuscriptorTrial from "./pages/MuscriptorTrial";
@@ -31,22 +31,33 @@ function SavedNotationTrial(): JSX.Element {
 }
 
 function App(): JSX.Element {
+  const { pathname } = useLocation();
+  const experimental = pathname === "/muscriptor-trial" || pathname === "/basic-pitch";
   return (
-    <main style={{ margin: "0 auto", maxWidth: 960, padding: "1.5rem" }}>
-      <header style={{ marginBottom: "1rem" }}>
-        <h1>Stem2Tab</h1>
-        <p style={{ color: "#4b5563" }}>
-          音源からベースを採譜して、試聴・五線譜・TAB・保存まで。
-        </p>
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">本文へ移動</a>
+      <header className="app-header">
+        <Link className="brand" to="/" aria-label="Stem2Tab ホーム">
+          <span className="brand-mark" aria-hidden="true">s<span>2</span>t</span>
+          <div><h1>Stem2Tab</h1><small>BASS TRANSCRIPTION WORKSPACE</small></div>
+        </Link>
+        <span className="app-header-note">聴いて、確かめて、弾く。</span>
       </header>
-      <nav aria-label="作業の入口" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <Link to="/">音源から採譜（MuScriptor）</Link>
-        <Link to="/midi-trial">MIDIから五線譜・TAB・任意補正</Link>
-        <Link to="/muscriptor-trial">MuScriptorで採譜（実験・配置確認）</Link>
-        <Link to="/basic-pitch">Basic Pitch（従来方式・別実行）</Link>
+      <nav className="app-nav" aria-label="作業の入口">
+        <div className="primary-nav">
+          <NavLink to="/" end>音源から採譜（MuScriptor）</NavLink>
+          <NavLink to="/midi-trial" className={() => pathname.startsWith("/midi-trial") ? "active" : ""}>MIDIから五線譜・TAB・任意補正</NavLink>
+        </div>
+        <details className="advanced-nav" open={experimental}>
+          <summary>実験・従来方式</summary>
+          <div className="advanced-nav-links">
+            <NavLink to="/muscriptor-trial">MuScriptorで採譜（実験・配置確認）</NavLink>
+            <NavLink to="/basic-pitch">Basic Pitch（従来方式・別実行）</NavLink>
+          </div>
+        </details>
       </nav>
-      <p>生成MIDI → 原時刻の五線譜・TAB → 必要な場合だけ運指・量子化・GP5の別版を選べます。</p>
-      <Routes>
+      <main className="app-content" id="main-content" tabIndex={-1}>
+        <Routes>
         <Route path="/notation-trial/:trialId" element={<SavedNotationTrial />} />
         <Route path="/listening-trial/:trialId" element={<SavedListeningTrial />} />
         <Route path="/muscriptor-trial" element={<MuscriptorTrial />} />
@@ -56,8 +67,10 @@ function App(): JSX.Element {
         <Route path="/" element={<Transcribe />} />
         <Route path="/basic-pitch" element={<Upload />} />
         <Route path="/demo/:jobId" element={<Demo />} />
-      </Routes>
-    </main>
+        </Routes>
+      </main>
+      <footer className="app-footer"><span>Stem2Tab</span><p>元データを保持。運指・量子化・GP5の別版は、必要な場合だけ選べます。</p></footer>
+    </div>
   );
 }
 
