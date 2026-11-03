@@ -179,7 +179,7 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
   }, [scale]);
   const preservesTime = variant === "storage" || variant === "notation-clock" || variant === "musical-clock";
   return <section className="score-viewer" aria-label={preservesTime ? "時刻保持MusicXMLプレビュー" : "明示リズム別版プレビュー"}>
-    {variant === "musical-clock" && <p>利用者が明示入力した一定BPM・拍子・拍原点による別版です。量子化・テンポ推定は行わず、音高・開始終了秒・原MIDIの0秒・再生速度を保持します。音楽的正解は未確認です。</p>}
+    {variant === "musical-clock" && <p>利用者が明示した固定BPM・拍子・拍原点による表記の別版です。量子化・自動推定は行いません。音高、開始・終了秒、素材先頭の時刻0と再生速度を保持します。音楽的正解は未確認です。</p>}
     {variant === "notation-clock" && <p><strong>記譜テンポ2倍の候補版・実時間維持。音高、開始・終了秒、再生速度は原版と同じです。量子化ではなく、小節を区切り直した比較用の表記です。実曲のテンポが確定した意味ではありません。</strong></p>}
     <p>{variant === "musical-clock" ? "時刻保持MusicXMLの合成音プレビューです。原音色・ベロシティ・コントローラは再現しません。指定した拍原点は小節線の位置で、再生開始0秒は元MIDIと共通です。" : preservesTime ? "時刻保持MusicXMLの合成音プレビューです。元音声・元MIDIの再生ではありません。表示上の4/4とテンポは表記のためのクロックで、音楽的な拍子・テンポは未検証です。移調は行いません。" : "利用者が明示したBPM・拍子・拍原点による量子化別版です。原時刻版ではありません。合成音色で再生し、時刻0は指定した拍原点です。音楽的正解・原音色の一致を保証しません。"}</p>
     {variant === "explicit-gp5" && <p>GP5は実音高をヘ音記号で表示します（慣習的な1オクターブ上の記譜は使いません）。実音高・弦・フレットは変えません。他のソフトでの音部記号・表示オクターブは未検証です。</p>}

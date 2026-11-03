@@ -122,16 +122,18 @@ export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: 
       <button disabled={busy} type="submit">{busy ? "処理中…" : "この設定でインポート"}</button>
     </fieldset></form>}
     {error && <p role="alert">{error}</p>}
-    {result && <section aria-label="インポート結果">
+    {result && <section className="midi-result" aria-label="インポート結果">
       <h3>結果: {result.status}</h3><p>試行ID: {result.trial_id}</p>
       <p>入力: {result.original_filename} / {result.input_bytes} bytes / {result.input_note_count}音 / 保存MIDI時間 {result.source_duration_seconds}秒 / 最終音終了 {result.last_note_end_seconds}秒</p>
-      <p>入力SHA-256: <code>{result.input_sha256}</code></p>
       <p>保存クロック: PPQ {result.storage_clock.ppq} / {result.storage_clock.tempo_bpm} BPM / {result.storage_clock.meter}（音楽的テンポ・拍子は未検証）</p>
-      <pre aria-label="適用された設定">{JSON.stringify(result.config, null, 2)}</pre>
+      <details><summary>入力ハッシュと保存設定</summary>
+        <p>入力SHA-256: <code>{result.input_sha256}</code></p>
+        <pre aria-label="適用された設定">{JSON.stringify(result.config, null, 2)}</pre>
+      </details>
       <p>GP5: {result.gp5.status} / 割当数: {result.gp5.mapped_count ?? "未実行"}</p>
       {result.gp5.requested && <p><strong>GP5はリズム非保持・四分音符のみの運指プレビューです。</strong></p>}
       {result.warnings.map((warning, i) => <p key={i}>注意: {warning}</p>)}
-      {!!result.gp5.unmappable.length && <><h4>GP5停止理由: 音域外の音</h4><table><thead><tr><th>元音インデックス</th><th>MIDI / 音名</th><th>開始–終了 秒</th><th>理由</th></tr></thead><tbody>{result.gp5.unmappable.map((note) => <tr key={note.source_index}><td>{note.source_index}</td><td>{note.midi} / {pitchName(note.midi)}</td><td>{note.start}–{note.end}</td><td>{note.reason}</td></tr>)}</tbody></table></>}
+      {!!result.gp5.unmappable.length && <><h4>GP5停止理由: 音域外の音</h4><div className="midi-result-table" tabIndex={0} role="region" aria-label="GP5音域外の音・横スクロール可能"><table><thead><tr><th>元音インデックス</th><th>MIDI / 音名</th><th>開始–終了 秒</th><th>理由</th></tr></thead><tbody>{result.gp5.unmappable.map((note) => <tr key={note.source_index}><td>{note.source_index}</td><td>{note.midi} / {pitchName(note.midi)}</td><td>{note.start}–{note.end}</td><td>{note.reason}</td></tr>)}</tbody></table></div></>}
       <h4>成果物ダウンロード</h4><ul>{result.artifacts.filter((a) => a.key !== "gp5-preview" || result.gp5.status === "written").map((artifact) => <li key={artifact.key}><a href={`${API_BASE}${artifact.url}`} download>{artifact.key === "original-midi" ? "元MIDI（入力そのもの）" : artifact.key === "storage-clock-xml" ? "時刻保持MusicXML（保存クロック）" : artifact.key === "gp5-preview" ? "GP5運指プレビュー（リズム非保持）" : artifact.kind}: {artifact.filename}</a> ({artifact.bytes} bytes)<details><summary>SHA-256</summary><code>{artifact.sha256}</code></details></li>)}</ul>
       <p><a href={`/notation-trial/${result.trial_id}`}>この保存MIDIから運指・リズム別版を選択</a></p>
       {xml && <>

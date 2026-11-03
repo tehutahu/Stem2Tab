@@ -318,14 +318,19 @@ The saved-MIDI viewer also offers an explicit [original-time staff + TAB view](d
 using the saved bass tuning. Playback cursors follow absolute player time without
 overshooting note/rest columns. Originals and existing GP5 preview files stay intact.
 
-An explicit [notation-clock comparison](docs/evaluation/notation-clock.md) offers
-the original clock or a 2x tempo/2x duration derivative. It preserves absolute
-event times and playback speed without quantization. Meter/downbeat remain
-unverified inherited assumptions; the candidate is not a song-tempo estimate.
+The saved clock does not establish the song's BPM. Blank [musical-clock
+settings](docs/evaluation/MUSICAL_CLOCK.md) accept an explicit quarter BPM,
+meter and downbeat origin and export a separate exact MusicXML/report without
+quantization or source changes. No tempo estimation runs. Preview is enabled only
+when the renderer can preserve every event and tail exactly; fractional BPM and
+many unquantized boundaries remain download-only. Older doubled-clock links
+remain readable as notation comparisons, not measured song-tempo candidates.
 
 The same local viewer offers an opt-in **time-proportional synchronization view**:
 the installed alphaTab 1.7.1 engine draws its original symbols, rests, ties,
-barlines and TAB on a 360 px/second axis, one bar per system. The former custom
+barlines and TAB with a measured width for each bar, one bar per system. Sparse
+bars fit the viewport; dense bars retain readable spacing in a keyboard-accessible
+score scroller. The former custom
 SVG symbols and added duration-ratio annotations are no longer used. Source
 MusicXML duration symbols remain unchanged; they are not an exact conventional
 notation of unquantized sub-beat timing. Normal engraving stays selectable.
@@ -383,3 +388,11 @@ only their owned process groups, including helpers after a leader exits.
 
 
 M4A AAC/ALAC and Ogg/Opus are converted with the existing local FFmpeg before separation; original encoded bytes are retained. See [local audio input limits](docs/evaluation/LOCAL_AUDIO_INPUTS.md).
+
+Saved-output candidates retain their IDs and actionable
+[MIDI rejection diagnostics](docs/evaluation/MIDI_REJECTION_DIAGNOSTICS.md),
+including a durable blocked result after acceptance. Reload and same-ID checks
+reuse the retained receipt; source and candidate hashes are verified.
+
+For a synthetic local visual review, see [the product UI guide](docs/PRODUCT_UI_REVIEW.md)
+and the fixture/launcher commands in [the test guide](docs/TESTING.md).
