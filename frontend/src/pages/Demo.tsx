@@ -73,7 +73,7 @@ function Demo(): JSX.Element {
   }, []);
 
   return (
-    <section style={{ display: "grid", gap: "1rem" }}>
+    <section className="product-page" style={{ display: "grid", gap: "1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 style={{ margin: 0 }}>デモモード</h2>

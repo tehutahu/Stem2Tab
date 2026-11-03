@@ -1,10 +1,13 @@
 import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../config";
+import type { MusicalClockSelection } from "../utils/musicalClock";
+import MusicalClockSettings from "../components/MusicalClockSettings";
 import { isTrialSummary, MidiTrialSummary, pitchName } from "../utils/midiTrial";
 import { readBassTabConfig } from "../utils/bassTabConfig";
 const Viewer = lazy(() => import("../components/MidiTrialViewer"));
 
 export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: string; jobSource?: { jobId: string; name: string } } = {}): JSX.Element {
+  const [musicalScoreUrl, setMusicalScoreUrl] = useState<MusicalClockSelection | null>(null);
   const [sourceRead, setSourceRead] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [profile, setProfile] = useState("");
@@ -21,11 +24,11 @@ export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: 
   const [spacing,setSpacing]=useState<"engraved"|"time">(()=>new URLSearchParams(window.location.search).get("spacing")==="time"?"time":"engraved");
   const request = useRef<AbortController | null>(null);
   const generation = useRef(0);
-  const invalidate = (): void => { generation.current++; request.current?.abort(); request.current = null; setResult(null); setError(""); setBusy(false); };
+  const invalidate = (): void => { generation.current++; request.current?.abort(); request.current = null; setResult(null); setMusicalScoreUrl(null); setError(""); setBusy(false); };
   useEffect(() => () => { generation.current++; request.current?.abort(); }, []);
   useEffect(() => {
     if (savedTrialId === undefined) return;
-    generation.current++; request.current?.abort(); setResult(null); setError(""); setBusy(false);
+    generation.current++; request.current?.abort(); setResult(null); setMusicalScoreUrl(null); setError(""); setBusy(false);
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(savedTrialId)) {
       setError("保存済み試行IDが不正です。"); return;
     }
@@ -101,7 +104,7 @@ export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: 
   const xml = result?.artifacts.find((artifact) => artifact.key === "storage-clock-xml");
   const tabConfig = result ? readBassTabConfig(result.config) : null;
   const candidateUrl = result ? `${API_BASE}/api/v1/midi-trials/${result.trial_id}/notation-clock/double.musicxml` : "";
-  return <article>
+  return <article className="product-page">
     <h2>保存MIDIインポート（実験的ベース出力）</h2>
     <p>ローカルの保存MIDIを明示選択して試します。音源分離・新規推論は実行しません。入力をオクターブ移動せず保持します。上限: 2 MiB・2000音・600秒。複雑な保存クロックは処理を停止する場合があります。</p>
     {savedTrialId !== undefined && <p role="note">保存済み結果の閲覧です。再インポート・再推論は行いません。記譜テンポ候補は原版を保持して別に生成します。{busy && " 読込中…"}</p>}
@@ -132,20 +135,13 @@ export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: 
       <h4>成果物ダウンロード</h4><ul>{result.artifacts.filter((a) => a.key !== "gp5-preview" || result.gp5.status === "written").map((artifact) => <li key={artifact.key}><a href={`${API_BASE}${artifact.url}`} download>{artifact.key === "original-midi" ? "元MIDI（入力そのもの）" : artifact.key === "storage-clock-xml" ? "時刻保持MusicXML（保存クロック）" : artifact.key === "gp5-preview" ? "GP5運指プレビュー（リズム非保持）" : artifact.kind}: {artifact.filename}</a> ({artifact.bytes} bytes)<details><summary>SHA-256</summary><code>{artifact.sha256}</code></details></li>)}</ul>
       <p><a href={`/notation-trial/${result.trial_id}`}>この保存MIDIから運指・リズム別版を選択</a></p>
       {xml && <>
-        <section aria-label="記譜テンポ変更・実時間維持">
-          <h4>記譜テンポ変更・実時間維持（量子化なし）</h4>
-          <p>表示中: {doubleClock ? `候補 ${result.storage_clock.tempo_bpm * 2} BPM` : `原版 ${result.storage_clock.tempo_bpm} BPM`}。音高・音の開始終了秒・再生速度は維持します。切替時は再生を停止して0秒へ戻ります。</p>
-          <p>4/4と拍原点0秒（入力音源の開始）は原版から継承する表記上の仮定です。実曲の拍子・小節頭・テンポは未確認で、自動推定は行いません。</p>
-          <p>{result.storage_clock.tempo_bpm}→{result.storage_clock.tempo_bpm * 2} BPMでは拍単位の音価は2倍、4/4の1小節は{240 / result.storage_clock.tempo_bpm}→{120 / result.storage_clock.tempo_bpm}秒、小節数は2倍です。末尾の休符を含む全体秒数も維持します。</p>
-          <p><a href={`/midi-trial/saved/${result.trial_id}?view=${showTab ? "tab" : "staff"}${spacing === "time" ? "&spacing=time" : ""}`}>原版 {result.storage_clock.tempo_bpm} BPMで表示</a>{" / "}<a href={`/midi-trial/saved/${result.trial_id}?view=${showTab ? "tab" : "staff"}&notation=double${spacing === "time" ? "&spacing=time" : ""}`}>候補 {result.storage_clock.tempo_bpm * 2} BPMで表示（実時間維持）</a></p>
-          <p><a href={candidateUrl} download="notation-clock-double.musicxml">記譜テンポ2倍の候補MusicXMLを保存（量子化なし）</a></p>
-          <p role="note">この原時刻の記譜テンポ変換ではGP5出力に対応していません。上のGP5は従来の四分音符運指プレビューで、この候補版のリズム保持出力ではありません。</p>
-        </section>
-        <label>横配置 <select value={spacing} onChange={event=>setSpacing(event.target.value === "time" ? "time" : "engraved")}><option value="engraved">通常譜刻（読みやすさ優先）</option><option value="time">時間比例（等速カーソル・発音位置同期）</option></select></label>
+        <MusicalClockSettings key={result.trial_id} trial={result} onSelect={setMusicalScoreUrl} />
+        {doubleClock && !musicalScoreUrl && <p role="note">旧リンクの2倍保存クロック表記を表示中です。{result.storage_clock.tempo_bpm * 2} BPMは音楽的テンポの推定値ではありません。4/4・原点0秒の表記上の仮定です。<a href={`/midi-trial/saved/${result.trial_id}`}>原版に戻る</a></p>}
+        <label>横配置 <select disabled={!!musicalScoreUrl} value={musicalScoreUrl ? "engraved" : spacing} onChange={event=>setSpacing(event.target.value === "time" ? "time" : "engraved")}><option value="engraved">通常譜刻（読みやすさ優先）</option><option value="time">時間比例（等速カーソル・発音位置同期）</option></select></label>
         <p>横配置・TABの切替は再生を停止して0秒へ戻します。元データ・記譜テンポ・再生速度は変えません。</p>
         <label><input type="checkbox" checked={showTab} disabled={!tabConfig} onChange={(event) => setShowTab(event.target.checked)} /> 五線譜＋TAB（保存済み弦設定・原時刻保持）</label>
         {!tabConfig && <p role={showTab ? "alert" : "note"}>保存済み弦設定を確認できないため、TAB表示は利用できません。</p>}
-        <Suspense fallback={<p>ビューア読込中…</p>}><Viewer key={result.trial_id} scoreUrl={doubleClock ? candidateUrl : `${API_BASE}${xml.url}`} variant={doubleClock ? "notation-clock" : "storage"} bassTab={showTab && tabConfig ? tabConfig : undefined} spacing={spacing} /></Suspense>
+        <Suspense fallback={<p>ビューア読込中…</p>}><Viewer key={result.trial_id} scoreUrl={musicalScoreUrl?.url ?? (doubleClock ? candidateUrl : `${API_BASE}${xml.url}`)} musicalClockProof={musicalScoreUrl?.proof} variant={musicalScoreUrl ? "musical-clock" : doubleClock ? "notation-clock" : "storage"} bassTab={showTab && tabConfig ? tabConfig : undefined} spacing={musicalScoreUrl ? "engraved" : spacing} /></Suspense>
       </>}
     </section>}
   </article>;

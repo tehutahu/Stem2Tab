@@ -106,7 +106,9 @@ function Upload(): JSX.Element {
   };
 
   return (
-    <section>
+    <section className="product-page">
+      <h2>Basic Pitchで採譜する</h2>
+      <p>従来方式を選んで実行します。通常のMuScriptor採譜とは別の処理です。</p>
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem" }}>
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Upload audio</span>
@@ -121,14 +123,6 @@ function Upload(): JSX.Element {
         <button
           type="submit"
           disabled={submitState.isSubmitting || !selectedFile || uncertain}
-          style={{
-            padding: "0.5rem 0.9rem",
-            border: "1px solid #2563eb",
-            background: "#2563eb",
-            color: "#fff",
-            borderRadius: "6px",
-            cursor: submitState.isSubmitting || !selectedFile ? "not-allowed" : "pointer",
-          }}
         >
           Create job
         </button>
@@ -153,9 +147,9 @@ function Upload(): JSX.Element {
             Progress: <strong>{progressLabel}</strong>
           </p>
         )}
-        {polling.error && <p style={{ color: "#dc2626" }}>Error: {polling.error}</p>}
-        {submitState.error && <p style={{ color: "#dc2626" }}>Error: {submitState.error}</p>}
-        {polling.data?.error && <p style={{ color: "#dc2626" }}>Error: {polling.data.error}</p>}
+        {polling.error && <p role="alert">Error: {polling.error}</p>}
+        {submitState.error && <p role="alert">Error: {submitState.error}</p>}
+        {polling.data?.error && <p role="alert">Error: {polling.data.error}</p>}
         {files.length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
             <p>Artifacts:</p>

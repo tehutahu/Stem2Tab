@@ -231,7 +231,7 @@ def _run(folder: Path, deployment: trial.Deployment, slot: int, reuse: Path | No
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         _state(folder, status="failed", stage="notation_rejected", error=trial.TrialError(
             code=detail.get("code", "notation_rejected"),
-            message="Raw MIDI was retained, but strict notation conversion rejected it. No note repair was performed."))
+            message=detail.get("message", "Raw MIDI was retained, but strict notation conversion rejected it. No note repair was performed.")))
     except Exception:
         trial.logger.exception("transcription_failed", job_id=folder.name)
         _state(folder, status="failed", stage="failed", error=trial.TrialError(code="workflow_failed",

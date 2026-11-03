@@ -8,9 +8,11 @@ import { buildTimeScore } from "../utils/timeScore";
 import { installLibraryTimeLayout, buildLibraryTimeCursor, type LibraryTimeGeometry } from "../utils/libraryTimeLayout";
 import { installReadableEngravingLayout } from "../utils/readableEngraving";
 import { PlaybackTransport } from "../utils/playbackTransport";
+import type { MusicalClockProof } from "../utils/musicalClock";
+import { prepareMusicalClockScore, verifyMusicalClockScore } from "../utils/musicalClockScore";
 import "./MidiTrialViewer.css";
 
-export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab, spacing = "engraved" }: { scoreUrl: string; variant?: "storage" | "notation-clock" | "musical-clock" | "explicit" | "explicit-gp5"; bassTab?: BassTabConfig; spacing?: "engraved" | "time" }): JSX.Element {
+export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab, musicalClockProof, spacing = "engraved" }: { scoreUrl: string; variant?: "storage" | "notation-clock" | "musical-clock" | "explicit" | "explicit-gp5"; bassTab?: BassTabConfig; musicalClockProof?: MusicalClockProof; spacing?: "engraved" | "time" }): JSX.Element {
   const container = useRef<HTMLDivElement>(null);
   const cursor = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -117,6 +119,12 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
       transportRef.current = transport;
       api.scoreLoaded.on((score) => {
         if (!alive) return;
+        if (variant === "musical-clock") {
+          try {
+            if (!musicalClockProof) throw new Error("音楽的クロックの原時刻検証データがありません。");
+            prepareMusicalClockScore(score); verifyMusicalClockScore(score, musicalClockProof);
+          } catch (cause) { fail(cause); return; }
+        }
         let tabApplied = false;
         if (tuningKey !== undefined && maxFret !== undefined) {
           try { applyBassTab(score, { tuning: tuningKey.split(",").map(Number), maxFret }); tabApplied = true; }
@@ -165,7 +173,7 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
       if (!api.load(scoreUrl)) fail("MusicXMLの読込を開始できませんでした。");
     } catch (cause) { fail(cause); }
     return () => { alive = false; scoreObserver.disconnect(); transport?.dispose(); if (transportRef.current === transport) transportRef.current = null; if (apiRef.current === api) apiRef.current = null; api?.destroy(); };
-  }, [scoreUrl, variant, tuningKey, maxFret, spacing]);
+  }, [scoreUrl, variant, tuningKey, maxFret, spacing, musicalClockProof]);
   useEffect(() => {
     const api = apiRef.current;
     if (!api || api.settings.display.scale === Number(scale)) return;
@@ -175,9 +183,9 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
   }, [scale]);
   const preservesTime = variant === "storage" || variant === "notation-clock" || variant === "musical-clock";
   return <section className="score-viewer" aria-label={preservesTime ? "時刻保持MusicXMLプレビュー" : "明示リズム別版プレビュー"}>
-    {variant === "musical-clock" && <p><strong>利用者が明示した固定BPM・拍子・拍原点による表記の別版です。量子化・自動推定は行いません。音高、開始・終了秒、素材先頭の時刻0と再生速度を保持します。</strong></p>}
+    {variant === "musical-clock" && <p>利用者が明示した固定BPM・拍子・拍原点による表記の別版です。量子化・自動推定は行いません。音高、開始・終了秒、素材先頭の時刻0と再生速度を保持します。音楽的正解は未確認です。</p>}
     {variant === "notation-clock" && <p><strong>記譜テンポ2倍の候補版・実時間維持。音高、開始・終了秒、再生速度は原版と同じです。量子化ではなく、小節を区切り直した比較用の表記です。実曲のテンポが確定した意味ではありません。</strong></p>}
-    <p>{variant === "musical-clock" ? "明示した音楽クロックのMusicXMLを合成音でプレビューします。元音声・元MIDIの再生ではありません。移調は行いません。" : preservesTime ? "時刻保持MusicXMLの合成音プレビューです。元音声・元MIDIの再生ではありません。表示上の4/4とテンポは表記のためのクロックで、音楽的な拍子・テンポは未検証です。移調は行いません。" : "利用者が明示したBPM・拍子・拍原点による量子化別版です。原時刻版ではありません。合成音色で再生し、時刻0は指定した拍原点です。音楽的正解・原音色の一致を保証しません。"}</p>
+    <p>{variant === "musical-clock" ? "時刻保持MusicXMLの合成音プレビューです。原音色・ベロシティ・コントローラは再現しません。指定した拍原点は小節線の位置で、再生開始0秒は元MIDIと共通です。" : preservesTime ? "時刻保持MusicXMLの合成音プレビューです。元音声・元MIDIの再生ではありません。表示上の4/4とテンポは表記のためのクロックで、音楽的な拍子・テンポは未検証です。移調は行いません。" : "利用者が明示したBPM・拍子・拍原点による量子化別版です。原時刻版ではありません。合成音色で再生し、時刻0は指定した拍原点です。音楽的正解・原音色の一致を保証しません。"}</p>
     {variant === "explicit-gp5" && <p>GP5は実音高をヘ音記号で表示します（慣習的な1オクターブ上の記譜は使いません）。実音高・弦・フレットは変えません。他のソフトでの音部記号・表示オクターブは未検証です。</p>}
     <p role="status">描画: {rendered ? "完了" : "待機"} / 再生準備: {ready ? "完了" : "待機"} / 状態: {state}{pending ? "（操作反映中）" : ""}</p>
     <p>{inspection}</p>
