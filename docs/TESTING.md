@@ -1,5 +1,21 @@
 # テスト計画
 
+Retained-output review checks (CPU only): run
+`pytest tests/unit/test_model_output_reviews.py tests/unit/test_transcriptions_api.py tests/unit/test_muscriptor_worker.py tests/unit/test_muscriptor_trials_api.py`.
+Synthetic tests check every raw MIDI on/off pair including zero-duration pairs,
+immutable legacy jobs, worker asset verification and receipt hashes, explicit
+preview policy, same-ID recovery without conversion, modified-source refusal,
+and cross-job UUID isolation. They do not establish acoustic/model accuracy.
+The review-preview endpoint must never call a model worker or GPU stage.
+
+Run all `npm test -- --run`, `npx tsc --noEmit`, and the frontend build after UI
+changes. `OutputReview` checks explicit selection and same-ID GET recovery;
+`Transcribe` checks saved-job links issue no POST. Geometry tests check that a
+missing cursor path cannot interpolate across an affected engraved bar, while
+time-proportional layout stays strict. TAB tests check range failure happens
+before score mutation, preserving staff and playback. Verify real rendering and
+playback separately in a browser; mocks alone do not prove SDK geometry or sound.
+
 ## 現在の検証範囲
 
 - BackendはAPI/workerのモック中心と、440Hz合成音に対するBasic Pitchスモークを実装済み。
@@ -567,3 +583,87 @@ npm test -- --run
 node node_modules/typescript/bin/tsc --noEmit
 npm run build
 ```
+
+## MuScriptor-first product workflow
+
+Run all backend tests with the existing Python 3.11 environment (`python -m pytest
+ tests -q`), then `npm test -- --run`, `npx tsc --noEmit` and `npm run build` in
+`frontend`. New tests are `test_transcriptions_api.py`, the long-stream tests in
+`test_muscriptor_worker.py`, and `Transcribe.test.tsx`.
+
+The API checks synthesize 12-second WAVs and MIDI sustains over 5s/10s boundaries,
+including a same-pitch retrigger. They exercise the real source selection, strict
+MIDI import and notation output with **mocked** heavy stages. Adapter tests keep
+one complete event stream and check original onset/offset/pitch and progress;
+they do not establish that the real model generated those events. A separate
+supervisor test launches and cancels a real idle Python child, verifying exit and
+slot reuse without CUDA. Tests cover same-byte idempotency, changed-byte conflict,
+invalid intervals, sample alignment, stale events, API empty/HTML/truncated errors,
+reload recovery, cancellation, interruption, raw artifact retention and validated
+checkpoint reuse. Single-process API execution is the supported local configuration.
+
+The UI keeps an unknown POST result locked to the same request ID until checked;
+4xx refusal unlocks the form. API/proxy failure is checked before JSON parsing;
+the Web proxy returns structured JSON 503 when the API is down. Never infer that
+an unknown request did not start. `scripts/run_local.py` refuses occupied ports,
+requires an existing build, and always stops only its own children on exit.
+
+For browser checks use only loopback HTTP and fresh synthetic files. Do not load
+or republish previously denied file reports. Verify upload, duplicate click, reload,
+progress, cancellation acknowledgement vs terminal stop, retry, API stop/restart,
+TAB/player/export and preservation of the original/failed raw attempt. Record
+inference as mocked, never as real-model success. A separate deployed-model trial
+on approved local assets is still required to establish long-song VRAM, performance,
+valid stream rate and real boundary missing/extra/timing accuracy. Independent GT
+is unavailable; all 17 existing IDMT recordings have already been used.
+
+With Playwright and system Chromium already installed, reproduce the product
+browser test from the root with `python scripts/check_workflow_http.py
+--backend-python backend/.venv/bin/python --result-dir /tmp/stem2tab-workflow-new`.
+Use a new result directory. It starts ports 4320/8320, marks screenshots and JSON
+as synthetic/mocked, stops and restores the actual API, and stops both owned
+servers in `finally`. It does not activate a mock mode in the shipped application.
+
+Review regressions also cover a fast competing same-ID request (identical and
+conflicting bytes), changed saved input/downloads, corrupt checkpoints, inherited
+execution-lock survival after API interruption, and raw MIDI downloads after
+notation rejection. Real idle process trees include a helper ignoring SIGTERM;
+cancel and launcher cleanup kill only owned groups while an unrelated process
+stays alive. CLI tests launch the actual worker argument parser for both stages
+and both 10s/600s bounds; model work alone is replaced by a completion fixture.
+Cancellation writes a supervisor record even on an exceptional exit.
+
+For the final short model chunk, onset must precede actual audio end; offset may
+reach only `ceil(audio_seconds * 100) / 100` (the pinned model's 100Hz clock),
+allowing its representation's last partial frame. Longer padded events fail
+before MIDI export with raw notes and `audio-window.json` retained. This guard
+does not change note data and may reject previously accepted padded output;
+real-model acceptance rate remains unmeasured. No acoustic accuracy is inferred.
+
+
+## Local M4A and Ogg/Opus decoding
+
+Run python -B -m pytest tests/unit/test_local_audio_input.py tests/unit/test_transcriptions_api.py -q from backend using the existing environment. Tests encode synthetic AAC/ALAC/Opus with installed ffmpeg and exercise the real decoder and pre-separation API persistence. They never fetch media or load a neural model. Codec tests skip explicitly if ffmpeg/ffprobe are absent; missing-tool and boundary tests still run. See evaluation/LOCAL_AUDIO_INPUTS.md for limits.
+
+`workflowHttp.test.ts` checks public 422 details and form-field errors without
+echoing validation input/context, including missing or malformed error bodies.
+`Transcribe.test.tsx` checks explicit retry after rejection, retained file selection
+and prior-result restoration. The codec API tests reject an invalid form, accept
+the corrected request with the same ID, replay it once without another launch,
+and reject conflicting bounds without modifying any saved file. Run the full
+frontend test suite after editing the shared HTTP reader.
+
+Decoder regression checks also distinguish probe and decode failures, retain
+bounded local diagnostics, redact local paths/URLs in service logs, and prevent
+raw command errors from entering HTTP responses. A nonzero exit does not establish
+that an input is damaged or protected.
+
+Empty-input regressions cover every accepted extension in the UI and API.
+They assert that zero-byte input does not create a pending ID, make a POST,
+check model runtimes, spawn a decoder or create a job. Selecting a nonempty
+replacement remains possible. Valid synthetic codec tests must continue to pass.
+
+Failed transcription status responses explain retained decoder timing diagnostics
+without rewriting status, notes or tokens. A zero-duration failure stays failed;
+no automatic exclusion, extension or retry is performed. Unreadable auxiliary
+diagnostics must not hide the original terminal failure.

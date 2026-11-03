@@ -6,40 +6,65 @@ export interface CursorBar {
 }
 export interface CursorPosition { bar: number; tick: number; x: number; y: number; height: number }
 const EPSILON = 1e-6;
+type CursorApi = Pick<AlphaTabApi, "tickCache" | "renderer">;
+type Period = NonNullable<AlphaTabApi["tickCache"]>["masterBars"][number];
+type Lookup = NonNullable<AlphaTabApi["renderer"]["boundsLookup"]>;
+type Bounds = NonNullable<ReturnType<Lookup["findMasterBar"]>>;
+class CursorGeometryError extends Error {}
+export interface CursorMap { bars: CursorBar[]; unavailableBars: Array<{ index: number; reason: string }> }
 
 /** Build one time-ordered path per rendered bar, including rests/ties/all voices.
  * Use the public playback schedule (also handles repeats), never note-on events.
  * Coordinates are rebuilt after every layout; the path has no animation history.
  */
-export function buildCursorBars(api: Pick<AlphaTabApi, "tickCache" | "renderer">): CursorBar[] {
+export function buildCursorBars(api: CursorApi): CursorBar[] {
+  const result = buildCursorMap(api);
+  if (result.unavailableBars.length) throw new CursorGeometryError(result.unavailableBars[0].reason);
+  return result.bars;
+}
+
+/** Keep valid bars usable; an unrepresentable engraved bar gets no cursor path. */
+export function buildCursorMap(api: CursorApi): CursorMap {
   const lookup = api.renderer.boundsLookup;
-  if (!lookup || !api.tickCache) return [];
-  return api.tickCache.masterBars.flatMap((period) => {
+  if (!lookup || !api.tickCache) return { bars: [], unavailableBars: [] };
+  const unavailableBars: CursorMap["unavailableBars"] = [];
+  const bars = api.tickCache.masterBars.flatMap((period) => {
     const bounds = lookup.findMasterBar(period.masterBar);
     if (!bounds) return [];
+    try { return [buildBar(period, bounds)]; }
+    catch (cause) {
+      if (!(cause instanceof CursorGeometryError)) throw cause;
+      unavailableBars.push({ index: period.masterBar.index, reason: cause.message });
+      return [{ index: period.masterBar.index, start: period.start, end: period.end,
+        y: bounds.visualBounds.y, height: bounds.visualBounds.h, points: [] }];
+    }
+  });
+  return { bars, unavailableBars };
+}
+
+function buildBar(period: Period, bounds: Bounds): CursorBar {
     const raw = bounds.bars.flatMap((bar) => bar.beats.map((b) => ({
       tick: period.start + b.beat.playbackStart, x: b.onNotesX,
     }))).sort((a, b) => a.tick - b.tick || a.x - b.x);
-    if (!raw.length) return [];
+    if (!raw.length) throw new CursorGeometryError("譜面の発音位置を確認できません。");
     const points: CursorBar["points"] = [];
     for (const point of raw) {
       const previous = points[points.length - 1];
       if (![point.tick, point.x].every(Number.isFinite) || point.tick < period.start - EPSILON || point.tick >= period.end + EPSILON)
-        throw new Error("譜面の時刻と小節範囲が一致しないため、カーソルを停止しました。");
+        throw new CursorGeometryError("譜面の時刻と小節範囲が一致しないため、カーソルを停止しました。");
       // Simultaneous voices may place glyphs slightly apart; use the first column.
       if (previous && Math.abs(point.tick - previous.tick) < EPSILON) continue;
       if (previous && point.x < previous.x - EPSILON)
-        throw new Error("譜面座標が同一小節内で逆行しています。誤った位置を表示できません。");
+        throw new CursorGeometryError("譜面座標が同一小節内で逆行しています。誤った位置を表示できません。");
       points.push(point);
     }
     if (points[0].tick > period.start) points.unshift({ tick: period.start, x: points[0].x });
     const right = bounds.visualBounds.x + bounds.visualBounds.w;
     if (right < points[points.length - 1].x || period.end <= period.start)
-      throw new Error("譜面の小節境界を確認できません。");
+      throw new CursorGeometryError("譜面の小節境界を確認できません。");
     points.push({ tick: period.end, x: right });
-    return [{ index: period.masterBar.index, start: period.start, end: period.end,
-      y: bounds.visualBounds.y, height: bounds.visualBounds.h, points }];
-  });
+    return { index: period.masterBar.index, start: period.start, end: period.end,
+      y: bounds.visualBounds.y, height: bounds.visualBounds.h, points };
 }
 
 /** Interpolate only between the surrounding columns; never extrapolate past them. */
@@ -47,6 +72,7 @@ export function cursorAtTick(bars: CursorBar[], tick: number): CursorPosition | 
   if (!Number.isFinite(tick) || !bars.length) return null;
   const bounded = Math.max(bars[0].start, Math.min(tick, bars[bars.length - 1].end));
   const bar = bars.find((b) => bounded >= b.start && bounded < b.end) ?? bars[bars.length - 1];
+  if (bar.points.length < 2) return null;
   let upper = bar.points.findIndex((p) => p.tick > bounded);
   if (upper < 0) upper = bar.points.length - 1;
   const a = bar.points[Math.max(0, upper - 1)], b = bar.points[upper];

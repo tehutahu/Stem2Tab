@@ -75,6 +75,21 @@ it("stops an unsupported TAB view and ignores late ready/position events",()=>{
   expect(screen.getByRole("button",{name:"再生"})).toBeDisabled();
   expect(screen.getByTestId("score-time-cursor")).not.toBeVisible();
 });
+it("keeps staff and playback when a saved TAB tuning cannot represent every note",()=>{
+  render(<MidiTrialViewer scoreUrl="/range" bassTab={{tuning:[28,33,38,43],maxFret:24}}/>);
+  const api=mock.apis[0];
+  const notes=[{realValue:24,isTieDestination:false},{realValue:28,isTieDestination:false}];
+  const staff={isPercussion:false,transpositionPitch:0,capo:0,bars:[{voices:[{beats:[{notes,absolutePlaybackStart:0,playbackDuration:960}]}]}]};
+  act(()=>{api.scoreLoaded.emit({tracks:[{playbackInfo:{program:33},staves:[staff]}]});api.renderFinished.emit();api.playerReady.emit();});
+  expect(screen.getByRole("note")).toHaveTextContent("音域外に1音");
+  expect(screen.getByRole("note")).toHaveTextContent("MIDI 24");
+  expect(screen.getByRole("note")).toHaveTextContent("五線譜と再生を保持");
+  expect(screen.queryByText(/描画・再生エラー/)).toBeNull();
+  expect(screen.getByRole("button",{name:"再生"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"再生"}));
+  expect(api.play).toHaveBeenCalledOnce();
+  expect(notes.map(n=>n.realValue)).toEqual([24,28]);
+});
 it("disposes previous playback when changing TAB settings and preserves a stable config",()=>{
   const config={tuning:[28,33,38,43],maxFret:24};
   const view=render(<MidiTrialViewer scoreUrl="/one" bassTab={config}/>);const old=mock.apis[0];

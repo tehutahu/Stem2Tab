@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { importer, model, rendering, Settings, type AlphaTabApi } from "@coderline/alphatab";
-import { buildCursorBars, cursorAtTick } from "../utils/scoreCursor";
+import { buildCursorBars, buildCursorMap, cursorAtTick } from "../utils/scoreCursor";
 import { applyBassTab } from "../utils/scoreTab";
 import { readBassTabConfig } from "../utils/bassTabConfig";
 
@@ -50,6 +50,20 @@ describe("absolute playback cursor",()=>{
     const api={tickCache:{masterBars:[{masterBar,start:0,end:960}]},renderer:{boundsLookup:{findMasterBar:()=>({visualBounds:{x:0,y:10,w:100,h:80},bars:[{beats:points.map(p=>({beat:{playbackStart:p.t},onNotesX:p.x}))}]})}}};
     expect(buildCursorBars(api as any)[0].points).toHaveLength(4);
     points[2].x=10;expect(()=>buildCursorBars(api as any)).toThrow(/逆行/);
+    const partial=buildCursorMap(api as any);
+    expect(partial.unavailableBars).toHaveLength(1);
+    expect(partial.bars[0].points).toEqual([]);
+    expect(cursorAtTick(partial.bars,120)).toBeNull();
+  });
+  it("hides a cursor only in the unavailable bar, including first/last bar gaps",()=>{
+    const bars=renderPaths(scoreFromXml());
+    const firstMissing=bars.map((bar,i)=>i===0?{...bar,points:[]}:bar);
+    expect(cursorAtTick(firstMissing,100)).toBeNull();
+    expect(cursorAtTick(firstMissing,4000)?.bar).toBe(1);
+    const lastMissing=bars.map((bar,i)=>i===1?{...bar,points:[]}:bar);
+    expect(cursorAtTick(lastMissing,100)?.bar).toBe(0);
+    expect(cursorAtTick(lastMissing,4000)).toBeNull();
+    expect(cursorAtTick(lastMissing,9000)).toBeNull();
   });
 });
 describe("original-time staff plus TAB",()=>{

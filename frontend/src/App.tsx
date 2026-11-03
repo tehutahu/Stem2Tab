@@ -6,6 +6,7 @@ import ListeningTrial from "./pages/ListeningTrial";
 import NotationTrial from "./pages/NotationTrial";
 import Demo from "./pages/Demo";
 import Upload from "./pages/Upload";
+import Transcribe from "./pages/Transcribe";
 
 function SavedMidiTrial(): JSX.Element {
   const { trialId } = useParams();
@@ -35,13 +36,14 @@ function App(): JSX.Element {
       <header style={{ marginBottom: "1rem" }}>
         <h1>Stem2Tab</h1>
         <p style={{ color: "#4b5563" }}>
-          Upload audio, track progress, and preview tablature with demo playback.
+          音源からベースを採譜して、試聴・五線譜・TAB・保存まで。
         </p>
       </header>
       <nav aria-label="作業の入口" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <Link to="/">音源から採譜（Basic Pitch）</Link>
+        <Link to="/">音源から採譜（MuScriptor）</Link>
         <Link to="/midi-trial">MIDIから五線譜・TAB・任意補正</Link>
         <Link to="/muscriptor-trial">MuScriptorで採譜（実験・配置確認）</Link>
+        <Link to="/basic-pitch">Basic Pitch（従来方式・別実行）</Link>
       </nav>
       <p>生成MIDI → 原時刻の五線譜・TAB → 必要な場合だけ運指・量子化・GP5の別版を選べます。</p>
       <Routes>
@@ -51,7 +53,8 @@ function App(): JSX.Element {
         <Route path="/midi-trial/from-job/:jobId" element={<JobMidiImport />} />
         <Route path="/midi-trial" element={<MidiTrial />} />
         <Route path="/midi-trial/saved/:trialId" element={<SavedMidiTrial />} />
-        <Route path="/" element={<Upload />} />
+        <Route path="/" element={<Transcribe />} />
+        <Route path="/basic-pitch" element={<Upload />} />
         <Route path="/demo/:jobId" element={<Demo />} />
       </Routes>
     </main>

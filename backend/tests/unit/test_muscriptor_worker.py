@@ -355,6 +355,34 @@ def test_literal_midi_boundary_and_empty_output(tmp_path: Path) -> None:
     assert len(mido.MidiFile(tmp_path / "empty.mid").tracks) == 1
 
 
+def test_zero_duration_output_preserves_all_raw_events_and_requires_review(manifest,tmp_path,monkeypatch):
+    starts=[_Start(40,.1,0,'electric_bass'),_Start(40,.5,1,'electric_bass'),_Start(40,.5,2,'electric_bass')]
+    class Model:
+        _tokenizer=SimpleNamespace(_vocab=[SimpleNamespace(type='tie',value=0)])
+        def _program_for_instrument(self,name):return 33
+        def _generate_token_stream(self):yield _Boundary(0.,None);yield 0
+        def transcribe(self,audio,**kwargs):
+            yield _Progress(0,1)
+            for _ in self._generate_token_stream():pass
+            for start,end in zip(starts,[.5,.5,1.]):yield start;yield _End(end,start)
+            yield _Progress(1,1)
+    monkeypatch.setattr(worker,'_muscriptor_components',lambda *args:(
+        SimpleNamespace(TranscriptionModel=SimpleNamespace(load_model=lambda **kwargs:Model())),EVENT_TYPES))
+    torch=SimpleNamespace(cuda=SimpleNamespace(is_available=lambda:True,synchronize=lambda *args:None),
+        from_numpy=lambda wave:wave,inference_mode=nullcontext)
+    result=worker._transcribe(manifest,np.zeros((1,32000),dtype=np.float32),16000,tmp_path,torch,{'model_calls':0})
+    assert result['needs_review'] is True and result['counts']==dict(notes=3,zero_duration=1)
+    raw=json.loads((tmp_path/'notes.json').read_text())
+    assert len(raw)==3 and raw[1]['onset']==raw[1]['offset']==.5
+    assert not (tmp_path/'performance.mid').exists()
+    midi=mido.MidiFile(tmp_path/'model-events.mid')
+    assert sum(e.type=='note_on' for track in midi.tracks for e in track)==3
+    assert sum(e.type=='note_off' for track in midi.tracks for e in track)==3
+    receipt=json.loads((tmp_path/'output-review.json').read_text())
+    assert receipt['info']['raw_note_count']==3 and receipt['info']['positive_note_count']==2
+    assert receipt['info']['notes_modified'] is False
+
+
 @pytest.mark.parametrize("end", [.2, .3])
 def test_literal_midi_rejects_nonpositive_duration_without_writing(tmp_path: Path, end: float) -> None:
     notes = [dict(index=0, program=33, onset=.3, offset=end, pitch=43)]
@@ -428,3 +456,72 @@ def test_cli_failure_stdout_contains_safe_code_only(tmp_path: Path, monkeypatch:
                           "--input", str(tmp_path / "private.wav"), "--output", str(tmp_path / "out")])
     assert status == 1
     assert json.loads(capsys.readouterr().out) == dict(status="failed", code="bass_missing")
+
+
+def test_long_stream_keeps_boundary_sustains_and_retriggers_once(manifest, tmp_path, monkeypatch):
+    """Exercise our adapter, not the unavailable model's acoustic accuracy."""
+    starts = [_Start(28, 4.9, 0, 'electric_bass'), _Start(28, 5.1, 1, 'electric_bass'),
+              _Start(33, 9.9, 2, 'electric_bass')]
+    seen = []
+    class Model:
+        _tokenizer = SimpleNamespace(_vocab=[SimpleNamespace(type='tie', value=0)])
+        def _program_for_instrument(self, name): return 33
+        def _generate_token_stream(self):
+            for i in range(3):
+                yield _Boundary(i*5., (i+1)*5. if i<2 else None)
+                yield 0
+                yield _Progress(i+1,3)
+        def transcribe(self, audio, **kwargs):
+            seen.append((audio[0].shape, kwargs))
+            yield _Progress(0,3)
+            for event in self._generate_token_stream():
+                if isinstance(event,_Progress): yield event
+            for start, end in zip(starts,[5.1,5.2,10.1]):
+                yield start; yield _End(end,start)
+    model=Model()
+    monkeypatch.setattr(worker,'_muscriptor_components',lambda *args:(
+        SimpleNamespace(TranscriptionModel=SimpleNamespace(load_model=lambda **kwargs:model)),EVENT_TYPES))
+    torch=SimpleNamespace(cuda=SimpleNamespace(is_available=lambda:True,synchronize=lambda *args:None),
+                          from_numpy=lambda wave:wave,inference_mode=nullcontext)
+    result=worker._transcribe(manifest,np.zeros((1,192000),dtype=np.float32),16000,tmp_path,torch,{'model_calls':0})
+    notes=json.loads((tmp_path/'notes.json').read_text())
+    assert [(n['pitch'],n['onset'],n['offset']) for n in notes]==[(28,4.9,5.1),(28,5.1,5.2),(33,9.9,10.1)]
+    assert seen==[((1,192000),worker.PARAMETERS)] and result['counts']['notes']==3
+    assert json.loads((tmp_path/'progress.json').read_text())==dict(completed=3,total=3)
+
+
+def test_long_audio_requires_explicit_worker_bound(tmp_path):
+    path=tmp_path/'long.wav'
+    import soundfile as sf
+    sf.write(path,np.zeros(12*8000),8000,format='WAV')
+    with pytest.raises(worker.WorkerFailure):worker._read_audio(path)
+    wave,sr,info=worker._read_audio(path,600)
+    assert wave.shape==(1,96000) and info['cropped'] is False
+
+
+@pytest.mark.parametrize(('onset','offset','valid'),[(10.,10.03,True),(10.03,10.04,False),(9.9,14.,False)])
+def test_final_short_chunk_cannot_export_notes_in_padding(manifest,tmp_path,monkeypatch,onset,offset,valid):
+    start=_Start(28,onset,0,'electric_bass')
+    class Model:
+        _tokenizer=SimpleNamespace(_vocab=[SimpleNamespace(type='tie',value=0)])
+        def _program_for_instrument(self,name):return 33
+        def _generate_token_stream(self):
+            yield _Boundary(10.,None);yield 0
+        def transcribe(self,audio,**kwargs):
+            yield _Progress(0,3)
+            for _ in self._generate_token_stream():pass
+            yield start;yield _End(offset,start);yield _Progress(3,3)
+    monkeypatch.setattr(worker,'_muscriptor_components',lambda *args:(
+        SimpleNamespace(TranscriptionModel=SimpleNamespace(load_model=lambda **kwargs:Model())),EVENT_TYPES))
+    torch=SimpleNamespace(cuda=SimpleNamespace(is_available=lambda:True,synchronize=lambda *args:None),
+                          from_numpy=lambda wave:wave,inference_mode=nullcontext)
+    # Audio ends at 10.025s; the model's frame-aligned endpoint limit is 10.03.
+    if valid:worker._transcribe(manifest,np.zeros((1,160400),dtype=np.float32),16000,tmp_path,torch,{'model_calls':0})
+    else:
+        with pytest.raises(worker.WorkerFailure) as failure:
+            worker._transcribe(manifest,np.zeros((1,160400),dtype=np.float32),16000,tmp_path,torch,{'model_calls':0})
+        assert failure.value.code=='invalid_model_output' and not (tmp_path/'performance.mid').exists()
+    raw=json.loads((tmp_path/'notes.json').read_text())
+    assert (raw[0]['onset'],raw[0]['offset'])==(onset,offset)
+    window=json.loads((tmp_path/'audio-window.json').read_text())
+    assert window['valid'] is valid and window['maximum_offset_seconds']==10.03

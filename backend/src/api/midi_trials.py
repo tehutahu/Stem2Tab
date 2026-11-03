@@ -267,7 +267,8 @@ def create_midi_trial(
 
 def import_midi_bytes(data: bytes, *, filename: str, config: BassOutputConfig,
                       source_kind: Literal["muscriptor-small", "local-midi"],
-                      preview_requested: bool) -> MidiTrialSummary | JSONResponse:
+                      preview_requested: bool, trial_id: str | None = None,
+                      additional_warnings: tuple[str, ...] = ()) -> MidiTrialSummary | JSONResponse:
     """Export bounded supplied bytes with the same strict saved-MIDI contract.
 
     Also used after the opt-in local audio worker has finished. This function
@@ -280,10 +281,20 @@ def import_midi_bytes(data: bytes, *, filename: str, config: BassOutputConfig,
     if len(data)>MAX_UPLOAD_BYTES:
         _reject(413,"upload_limit","Saved-MIDI uploads are limited to2MiB.")
     midi,rows,source_duration = _preflight(data)
-    trial_id = str(uuid4())
+    if trial_id is None:
+        trial_id = str(uuid4())
+    else:
+        try:
+            parsed = UUID(trial_id)
+            if parsed.version != 4 or str(parsed) != trial_id:
+                raise ValueError
+        except ValueError:
+            _reject(422, "invalid_trial_id", "A canonical UUID4 is required for an explicit trial identifier.")
     base = _base_dir()
     base.mkdir(parents=True,exist_ok=True)
     folder = base/trial_id
+    if folder.exists() or folder.is_symlink():
+        _reject(409, "trial_exists", "The saved trial already exists and was not overwritten.")
     folder.mkdir(exist_ok=False)
     input_path = folder/"input.mid"
     with input_path.open("xb") as stream:
@@ -308,6 +319,7 @@ def import_midi_bytes(data: bytes, *, filename: str, config: BassOutputConfig,
     warnings = ["STORAGE_CLOCK_ONLY: MIDI duration and XML bar grid use the file storage clock; musical beats/meter are unverified.",
         "XML_SCOPE: loaded note pitch/onset/end interchange only; source velocity, timbre, bends and controllers are not rendered.",
         "SOURCE_LABEL: source_kind is caller-declared provenance, not independent model authentication."]
+    warnings = [*additional_warnings, *warnings]
     if preview_requested:
         warnings.append("GP5_PREVIEW_ONLY: sequential quarter-note fingering at an explicit preview clock, not performed rhythm or overlap fidelity.")
     if gp5_status=="unmappable":

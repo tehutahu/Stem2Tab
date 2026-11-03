@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import signal
 import subprocess
 import threading
 import time
@@ -219,13 +220,22 @@ def _child_rss(pid: int) -> int:
 
 
 def _terminate(process: subprocess.Popen) -> None:
+    """Stop only this service's start_new_session process group, including helpers."""
+    def send(sig: int) -> None:
+        try:
+            os.killpg(process.pid, sig)
+        except ProcessLookupError:
+            pass
     if process.poll() is None:
-        process.terminate()
+        send(signal.SIGTERM)
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+            send(signal.SIGKILL)
+    # A leader can exit while a helper ignores TERM. A successful worker also
+    # must not leave descendants holding CUDA or the inherited execution slot.
+    send(signal.SIGKILL)
+    process.wait(timeout=5)
 
 
 def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Path, slot: int) -> dict:
@@ -233,6 +243,11 @@ def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Pat
     python = deployment.demucs_python if stage == "separate" else deployment.muscriptor_python
     command = [str(python), str(WORKER), "--stage", stage, "--manifest", str(folder/"deployment.json"),
                "--input", str(input_path), "--output", str(output)]
+    # Product jobs opt into a larger bound; the original trial keeps its limits.
+    product = (folder/"workflow.json").is_file()
+    timeout = 7200 if product else STAGE_TIMEOUT_SECONDS
+    if product:
+        command += ["--max-audio-seconds", "600"]
     started = time.monotonic()
     peak_rss = 0
     with (folder/f"{stage}.log").open("xb") as log:
@@ -250,8 +265,10 @@ def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Pat
                 peak_rss = max(peak_rss, _child_rss(process.pid))
                 if _SHUTDOWN.is_set():
                     raise TrialFailure("server_stopping", "The local server stopped this trial; partial outputs remain local.")
-                if time.monotonic()-started > STAGE_TIMEOUT_SECONDS:
-                    raise TrialFailure("stage_timeout", "The local stage exceeded its 600-second limit; no automatic retry was made.")
+                if product and (folder/"cancel.requested").exists():
+                    raise TrialFailure("cancelled", "Processing was cancelled. Partial artifacts were retained.")
+                if time.monotonic()-started > timeout:
+                    raise TrialFailure("stage_timeout", "The local stage exceeded its time limit; no automatic retry was made.")
                 if peak_rss > MAX_CHILD_RSS_BYTES:
                     raise TrialFailure("memory_limit", "The local stage exceeded its 12-GiB process RAM limit; no automatic retry was made.")
                 time.sleep(.1)
@@ -259,9 +276,9 @@ def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Pat
             _terminate(process)
             with _CHILDREN_LOCK:
                 _CHILDREN.discard(process)
-    summary = dict(stage=stage, pid=process.pid, returncode=process.returncode,
-                   wall_seconds=time.monotonic()-started, sampled_peak_rss_bytes=peak_rss)
-    _write_json(folder/f"{stage}-supervisor.json", summary)
+            summary = dict(stage=stage, pid=process.pid, returncode=process.returncode,
+                           wall_seconds=time.monotonic()-started, sampled_peak_rss_bytes=peak_rss)
+            _write_json(folder/f"{stage}-supervisor.json", summary)
     result_path = output/"result.json"
     if process.returncode != 0:
         # Worker error details stay in local logs; only recognized semantic codes are exposed.
@@ -269,7 +286,7 @@ def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Pat
         if result_path.is_file() and not result_path.is_symlink():
             try:
                 candidate = json.loads(result_path.read_text(encoding="utf-8")).get("error",{}).get("code")
-                if candidate in {"bass_missing", "bass_stem_missing", "asset_changed", "cuda_unavailable", "source_changed"}:
+                if candidate in {"bass_missing", "bass_stem_missing", "asset_changed", "cuda_unavailable", "source_changed", "invalid_model_output"}:
                     code = candidate
             except (OSError, ValueError, AttributeError):
                 pass
@@ -277,7 +294,7 @@ def _run_stage(stage: str, deployment: Deployment, folder: Path, input_path: Pat
     if not result_path.is_file() or result_path.is_symlink():
         raise TrialFailure("missing_result", "The local worker did not produce a verified completion record.")
     result = json.loads(result_path.read_text(encoding="utf-8"))
-    if result.get("status") != "completed":
+    if result.get("status") not in ({"completed", "needs_review"} if stage == "transcribe" else {"completed"}) or result.get("stage") != stage:
         raise TrialFailure("invalid_result", "The local worker did not confirm successful completion.")
     return result
 
@@ -292,7 +309,9 @@ def _run_job(folder: Path, deployment: Deployment, input_path: Path, config: Bas
         if not bass.is_file() or bass.is_symlink():
             raise TrialFailure("bass_missing", "The separator did not produce the bass stem; no other stem will be substituted.")
         _state(folder, stage="transcribing")
-        _run_stage("transcribe", deployment, folder, bass, slot)
+        transcribed = _run_stage("transcribe", deployment, folder, bass, slot)
+        if transcribed.get("status") == "needs_review":
+            raise TrialFailure("model_output_review_required", "全推論イベントは保存されています。ゼロ長音のため譜面化前の確認が必要です。通常の音源入力画面から確認してください。")
         midi = folder/"transcribe"/"performance.mid"
         if not midi.is_file() or midi.is_symlink() or midi.stat().st_size > midi_trials.MAX_UPLOAD_BYTES:
             raise TrialFailure("missing_midi", "The transcriber did not produce a bounded raw Performance MIDI.")

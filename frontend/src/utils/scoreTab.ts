@@ -2,6 +2,10 @@ import { model } from "@coderline/alphatab";
 
 import { readBassTabConfig, type BassTabConfig } from "./bassTabConfig";
 
+export class TabUnavailableError extends Error {
+  constructor(public readonly kind: "range" | "overlap", message: string) { super(message); }
+}
+
 /** Add a view-only, all-or-none mapping using the saved low-to-high tuning.
  * This matches the existing simple highest-playable-string rule, not the optional
  * movement optimizer. Validate every note before mutation; keep ticks and pitch.
@@ -14,18 +18,27 @@ export function applyBassTab(score: model.Score, config: BassTabConfig): number 
     throw new Error("TAB表示は移調・カポのない単一ベース譜に限定しています。");
   const staff = staves[0];
   const mapped: Array<{ note: model.Note; pitch: number; string: number; fret: number; start: number; end: number }> = [];
+  const outside = new Map<number, number>();
   for (const bar of staff.bars) for (const voice of bar.voices) for (const beat of voice.beats) for (const note of beat.notes) {
     const pitch = note.realValue;
     let string = config.tuning.length;
     while (string > 0 && (pitch < config.tuning[string - 1] || pitch - config.tuning[string - 1] > config.maxFret)) string--;
-    if (!string) throw new Error(`MIDI ${pitch} は保存弦設定の音域外です。移調・音の省略をせずTAB表示を停止しました。`);
+    if (!string) {
+      if (!note.isTieDestination) outside.set(pitch, (outside.get(pitch) ?? 0) + 1);
+      continue;
+    }
     mapped.push({note,pitch,string,fret:pitch-config.tuning[string-1],start:beat.absolutePlaybackStart,end:beat.absolutePlaybackStart+beat.playbackDuration});
+  }
+  if (outside.size) {
+    const count = [...outside.values()].reduce((a,b)=>a+b,0);
+    const pitches = [...outside.keys()].sort((a,b)=>a-b).join(", ");
+    throw new TabUnavailableError("range", `保存済み${config.tuning.length}弦設定の音域外に${count}音あります（MIDI ${pitches}）。TABは保留し、音を変えず五線譜と再生を保持します。採譜の音高と実際の調弦を確認してください。弦・調弦の変更は別版で明示してください。`);
   }
   const sorted = [...mapped].sort((a,b)=>a.start-b.start || a.end-b.end);
   const ends = new Map<number,number>();
   for (const n of sorted) {
     if ((ends.get(n.string) ?? -Infinity) > n.start + 1e-6)
-      throw new Error("同じ弦に重なる音があります。音を消さずTAB表示を停止しました。運指別版で割当を確認してください。");
+      throw new TabUnavailableError("overlap", "同じ弦に重なる音があります。TABは保留し、音を変えず五線譜と再生を保持します。運指別版で割当を確認してください。");
     ends.set(n.string,n.end);
   }
   staff.stringTuning = new model.Tuning("保存済みベース設定", [...config.tuning].reverse(), false);

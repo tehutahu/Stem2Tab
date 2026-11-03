@@ -1,6 +1,7 @@
 # Experimental local audio trial
 
-The existing Upload/Celery/Basic Pitch path remains the default. `/muscriptor-trial`
+The home page now uses the MuScriptor product workflow (see README); the legacy
+Upload/Celery/Basic Pitch path is explicitly available at `/basic-pitch`. `/muscriptor-trial`
 is a separate opt-in page for a maximum 10-second, 10-MiB mono/stereo WAV or FLAC
 clip (8–96 kHz). It is a functional integration trial, not an approved accuracy
 upgrade. Existing RWC examples have no independently verified reference notes;

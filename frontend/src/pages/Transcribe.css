@@ -1,0 +1,13 @@
+.workflow { color: #172c35; line-height: 1.6; }
+.workflow h2 { font-size: 1.85rem; margin-bottom: .35rem; }
+.workflow section, .workflow fieldset { border: 1px solid #ccd9df; border-radius: 12px; background: #f7fafb; padding: 1.2rem; margin: 1.2rem 0; min-width: 0; }
+.workflow h3 { margin-top: 0; }
+.workflow legend { font-weight: 700; padding: 0 .4rem; }
+.workflow button { border: 1px solid #255b65; background: white; color: #194751; border-radius: 7px; padding: .55rem .9rem; cursor: pointer; }
+.workflow button[type=submit] { background: #155e66; color: white; font-weight: 700; }
+.workflow button:disabled { cursor: default; opacity: .55; }
+.workflow input, .workflow select { padding: .4rem; border: 1px solid #9bafb8; border-radius: 5px; max-width: 100%; }
+.workflow input[type=number] { width: 6rem; }
+.workflow [role=alert] { color: #8b2525; border-left: 3px solid #bc4c4c; padding-left: .8rem; overflow-wrap: anywhere; }
+.workflow a { color: #155e66; }
+@media (max-width: 600px) { .workflow h2 { font-size: 1.45rem; } .workflow section, .workflow fieldset { padding: .8rem; } }

@@ -7,5 +7,6 @@ it("connects normal-job results to the shared MIDI workflow", () => {
   render(<MemoryRouter initialEntries={["/midi-trial/from-job/12345678-1234-4123-8123-123456789012?name=bass.mid"]}><App /></MemoryRouter>);
   expect(screen.getByTestId("import-source")).toHaveTextContent("12345678-1234-4123-8123-123456789012 / bass.mid");
   expect(screen.getByRole("navigation", { name: "作業の入口" })).toBeVisible();
-  expect(screen.getByRole("link", { name: /MuScriptor/ })).toHaveAttribute("href", "/muscriptor-trial");
+  expect(screen.getByRole("link", { name: "音源から採譜（MuScriptor）" })).toHaveAttribute("href", "/");
+  expect(screen.getByRole("link", { name: "MuScriptorで採譜（実験・配置確認）" })).toHaveAttribute("href", "/muscriptor-trial");
 });

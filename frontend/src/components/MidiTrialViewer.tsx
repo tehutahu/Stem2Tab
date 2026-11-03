@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AlphaTabApi, model } from "@coderline/alphatab";
 import { pitchName } from "../utils/midiTrial";
-import { buildCursorBars, cursorAtTick, type CursorBar } from "../utils/scoreCursor";
-import { applyBassTab } from "../utils/scoreTab";
+import { buildCursorMap, cursorAtTick, type CursorBar } from "../utils/scoreCursor";
+import { applyBassTab, TabUnavailableError } from "../utils/scoreTab";
 import type { BassTabConfig } from "../utils/bassTabConfig";
 import { buildTimeScore, type TimeScore } from "../utils/timeScore";
 import { installLibraryTimeLayout, buildLibraryTimeCursor, LIBRARY_TIME_RATE } from "../utils/libraryTimeLayout";
@@ -24,6 +24,7 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
   const [inspection, setInspection] = useState("読込中");
   const [error, setError] = useState("");
   const [cursorError, setCursorError] = useState("");
+  const [tabIssue, setTabIssue] = useState("");
   const [timeLayout, setTimeLayout] = useState<TimeScore | null>(null);
   const tuningKey = bassTab?.tuning.join(",");
   const maxFret = bassTab?.maxFret;
@@ -49,11 +50,18 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
     };
     const rebuildCursor = (): void => {
       if (!alive || !api) return;
-      try { paths = spacing === "time" && timed ? buildLibraryTimeCursor(api,timed.tempo) : buildCursorBars(api); setCursorError(""); }
+      try {
+        if (spacing === "time" && timed) { paths = buildLibraryTimeCursor(api,timed.tempo); setCursorError(""); }
+        else {
+          const result = buildCursorMap(api); paths = result.bars;
+          setCursorError(result.unavailableBars.length ? `${result.unavailableBars.map(b=>b.index+1).join(", ")}小節では譜刻の音符位置が時刻順にならないため、赤線だけを非表示にします。譜面・音・再生時刻は保持しています。時間比例表示では全小節を同期できます。` : "");
+        }
+      }
       catch (cause) { paths = []; setCursorError(String(cause)); }
       updateCursor();
     };
     setCursorError("");
+    setTabIssue("");
     setTimeLayout(null);
     if (cursor.current) cursor.current.hidden = true;
     failed.current = false;
@@ -90,9 +98,13 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
       transportRef.current = transport;
       api.scoreLoaded.on((score) => {
         if (!alive) return;
+        let tabApplied = false;
         if (tuningKey !== undefined && maxFret !== undefined) {
-          try { applyBassTab(score, { tuning: tuningKey.split(",").map(Number), maxFret }); }
-          catch (cause) { fail(cause); return; }
+          try { applyBassTab(score, { tuning: tuningKey.split(",").map(Number), maxFret }); tabApplied = true; }
+          catch (cause) {
+            if (cause instanceof TabUnavailableError) setTabIssue(cause.message);
+            else { fail(cause); return; }
+          }
         }
         // GP5 has no serialized clef in this writer. Use a bass clef for this
         // explicitly selected bass derivative only; sounding notes stay intact.
@@ -113,7 +125,7 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
         const low = Math.min(...pitches), high = Math.max(...pitches);
         setInspection(`論理発音数 ${pitches.length} / 音域 ${pitches.length ? `${low} (${pitchName(low)})–${high} (${pitchName(high)})` : "なし"} / 合成音プログラム (0始まり) ${programs.join(", ")}`);
         if (spacing === "time") {
-          try { timed=buildTimeScore(score,tuningKey !== undefined); installLibraryTimeLayout(api!); setTimeLayout(timed); }
+          try { timed=buildTimeScore(score,tabApplied); installLibraryTimeLayout(api!); setTimeLayout(timed); }
           catch(cause) { fail(cause); return; }
         }
       });
@@ -151,6 +163,7 @@ export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab
     <p>{position.toFixed(2)} / {duration.toFixed(2)} 秒</p>
     </div>
     {error && <p role="alert">描画・再生エラー: {error}</p>}
+    {tabIssue && <p role="note">TAB表示の確認: {tabIssue}</p>}
     {cursorError && <p role="alert">カーソル: {cursorError}</p>}
     <div className="midi-trial-score-frame">
       <div className="midi-trial-score" ref={container} style={{ minHeight: 180, minWidth: spacing === "time" && timeLayout ? 240 + 240/timeLayout.tempo*LIBRARY_TIME_RATE : undefined }} />

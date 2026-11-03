@@ -16,6 +16,8 @@ from src.api.midi_trials import router as midi_trial_router
 from src.api.muscriptor_trials import router as muscriptor_trial_router
 from src.api.review_trials import router as listening_trial_router
 from src.api.notation_trials import router as notation_trial_router
+from src.api.transcriptions import router as transcription_router
+from src.api.model_output_reviews import router as model_output_review_router
 from src.core.config import settings
 from src.worker import tasks
 from src.worker.app import celery_app
@@ -45,6 +47,8 @@ app.include_router(midi_trial_router)
 app.include_router(muscriptor_trial_router)
 app.include_router(listening_trial_router)
 app.include_router(notation_trial_router)
+app.include_router(transcription_router)
+app.include_router(model_output_review_router)
 
 
 @app.get("/health")

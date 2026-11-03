@@ -26,8 +26,10 @@ from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
 sys.dont_write_bytecode = True
 if __package__:
     from .muscriptor_decoder import inspect_decoder_integrity
+    from . import model_output_review
 else:
     from muscriptor_decoder import inspect_decoder_integrity
+    import model_output_review
 SOURCE_COMMIT = "8a1ef88672cc23c26619adaff37ec48d82c0b906"
 MODEL_SHA256 = "bbd482c786b895cf7d8f44185073d951adae2ebb8a66f82ca84cd1f84569549c"
 CONFIG_SHA256 = "3008fc481e4a1cd978e337eb3759260c270892204db5039235ac939e1f42aeb2"
@@ -38,7 +40,7 @@ PARAMETERS = dict(use_sampling=False, temperature=1.0, cfg_coef=1.0,
 SAFE_ERRORS = {
     "invalid_manifest": "The server model configuration is invalid.",
     "asset_changed": "A required local model asset or official source failed verification.",
-    "invalid_audio": "Audio must be finite, nonempty WAV/FLAC, at most ten seconds, with one or two channels.",
+    "invalid_audio": "Audio must be finite, nonempty WAV/FLAC within the configured duration bound, with one or two channels.",
     "bass_missing": "The configured separator does not provide exactly one bass source.",
     "cuda_unavailable": "MuScriptor requires CUDA device zero; CPU fallback is disabled.",
     "invalid_model_output": "The model returned an invalid or unrepresentable output.",
@@ -199,7 +201,7 @@ def _verify_assets(manifest: WorkerManifest, stage: str) -> dict[str, Any]:
         raise WorkerFailure("asset_changed") from exc
 
 
-def _read_audio(path: Path) -> tuple[Any, int, dict[str, Any]]:
+def _read_audio(path: Path, max_audio_seconds: int = 10) -> tuple[Any, int, dict[str, Any]]:
     import numpy as np
     import soundfile as sf
     try:
@@ -207,7 +209,7 @@ def _read_audio(path: Path) -> tuple[Any, int, dict[str, Any]]:
         with sf.SoundFile(path, mode="r") as source:
             sr, channels, frames = source.samplerate, source.channels, source.frames
             if (source.format not in {"WAV", "WAVEX", "FLAC"} or channels not in (1, 2) or
-                    sr <= 0 or frames <= 0 or frames > 10 * sr):
+                    sr <= 0 or frames <= 0 or frames > max_audio_seconds * sr):
                 raise WorkerFailure("invalid_audio")
             data = source.read(dtype="float32", always_2d=True)
             format_name = source.format
@@ -362,7 +364,7 @@ def _serialize_events(events: list[Any], model: Any, event_types: Any) -> tuple[
     return rows, notes
 
 
-def _literal_midi(path: Path, notes: list[dict[str, Any]]) -> dict[str, Any]:
+def _literal_midi(path: Path, notes: list[dict[str, Any]], *, preserve_zero_duration: bool = False) -> dict[str, Any]:
     import mido
     midi = mido.MidiFile(type=1, ticks_per_beat=10000)
     metadata = mido.MidiTrack()
@@ -386,7 +388,8 @@ def _literal_midi(path: Path, notes: list[dict[str, Any]]) -> dict[str, Any]:
             if note["program"] != program:
                 continue
             a, b, pitch = note["onset"], note["offset"], note["pitch"]
-            if (not math.isfinite(a) or not math.isfinite(b) or not 0 <= a < b or
+            if (not math.isfinite(a) or not math.isfinite(b) or not 0 <= a <= b or
+                    (a == b and not preserve_zero_duration) or
                     type(pitch) is not int or not 0 <= pitch <= 127):
                 raise WorkerFailure("invalid_model_output")
             messages.extend([(round(a * 10000), a, ordinal * 2, mido.Message("note_on", note=pitch, velocity=100, channel=channel)),
@@ -400,7 +403,20 @@ def _literal_midi(path: Path, notes: list[dict[str, Any]]) -> dict[str, Any]:
         midi.save(file=stream)
     return dict(timebase_bpm=60, ticks_per_beat=10000, maximum_rounding_error_seconds=.00005,
                 velocity=100, velocity_reason="Official public events expose no velocity magnitude",
-                program_to_channel=mapping, quantization=False, note_repair=False)
+                program_to_channel=mapping, quantization=False, note_repair=False,
+                zero_duration_events_preserved=sum(n["onset"] == n["offset"] for n in notes))
+
+
+def _inspect_audio_window(notes: list[dict[str, Any]], duration: float) -> dict[str, Any]:
+    # Official timestamps and its 10ms final-note fallback use a 100Hz grid.
+    # Allow only rounding to the immediately following grid line, never the
+    # remaining zero padding of the final five-second model input.
+    end_limit = math.ceil(duration * 100 - 1e-8) / 100
+    violations = [ordinal for ordinal, note in enumerate(notes)
+                  if not 0 <= note["onset"] < duration or note["offset"] > end_limit + 1e-9]
+    return dict(valid=not violations, duration_seconds=duration, model_frame_seconds=.01,
+                maximum_offset_seconds=end_limit, violating_note_ordinals=violations,
+                notes_modified=False, policy="reject-padding-events-v1")
 
 
 def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torch: Any, state: dict[str, Any]) -> dict[str, Any]:
@@ -426,6 +442,11 @@ def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torc
     model._generate_token_stream = capture
     started = time.perf_counter()
     stream = model.transcribe((torch.from_numpy(wave), sr), **PARAMETERS)
+    def progress(event: Any) -> None:
+        if isinstance(event, event_types.ProgressEvent):
+            temporary = output / "progress.tmp"
+            _json(temporary, dict(completed=event.completed, total=event.total))
+            os.replace(temporary, output / "progress.json")
     try:
         first = next(stream)
         if not isinstance(first, event_types.ProgressEvent) or first.completed != 0:
@@ -434,8 +455,12 @@ def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torc
         preprocess = time.perf_counter() - started
         started = time.perf_counter()
         state["model_calls"] += 1
+        progress(first)
         with torch.inference_mode():
-            events = [first, *stream]
+            events = [first]
+            for event in stream:
+                events.append(event)
+                progress(event)
         torch.cuda.synchronize(0)
         inference = time.perf_counter() - started
     finally:
@@ -451,8 +476,21 @@ def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torc
     state["decoder_integrity"] = integrity.model_dump(mode="json")
     state["decoder_code_sha256"] = _sha(Path(__file__).with_name("muscriptor_decoder.py"))
     _json(output / "decoder-integrity.json", state["decoder_integrity"])
-    if integrity.status == "invalid":
+    state["audio_window"] = _inspect_audio_window(notes, wave.shape[-1] / sr)
+    _json(output / "audio-window.json", state["audio_window"])
+    if not state["audio_window"]["valid"]:
         raise WorkerFailure("invalid_model_output")
+    if integrity.status == "invalid":
+        try:
+            info, _ = model_output_review.inspect_source(output, wave.shape[-1]/sr, "needs_review")
+        except model_output_review.ReviewDataError:
+            raise WorkerFailure("invalid_model_output") from None
+        raw_midi = output/"model-events.mid"
+        raw_midi_settings = _literal_midi(raw_midi, notes, preserve_zero_duration=True)
+        model_output_review.write_manifest(output, raw_midi, wave.shape[-1]/sr, "needs_review")
+        return dict(needs_review=True, output_review_manifest_sha256=_sha(output/"output-review.json"),
+                    counts=dict(notes=len(notes), zero_duration=info.zero_duration_count),
+                    raw_midi=raw_midi_settings, times_seconds=dict(raw_serialization=time.perf_counter()-started))
     serialization = time.perf_counter() - started
     started = time.perf_counter()
     midi = output / "performance.mid"
@@ -467,7 +505,8 @@ def _transcribe(manifest: WorkerManifest, wave: Any, sr: int, output: Path, torc
                                    raw_serialization=serialization, midi_export=time.perf_counter() - started))
 
 
-def run_stage(stage: str, manifest_path: Path, input_path: Path, output: Path) -> dict[str, Any]:
+def run_stage(stage: str, manifest_path: Path, input_path: Path, output: Path,
+              max_audio_seconds: int = 10) -> dict[str, Any]:
     """Execute one bounded service-owned stage and write one terminal result."""
     began = time.perf_counter()
     try:
@@ -489,7 +528,9 @@ def run_stage(stage: str, manifest_path: Path, input_path: Path, output: Path) -
         result["provenance"] = _verify_assets(manifest, stage)
         result["times_seconds"]["validation"] = time.perf_counter() - started
         started = time.perf_counter()
-        wave, sr, audio = _read_audio(input_path)
+        if not 1 <= max_audio_seconds <= 600:
+            raise WorkerFailure("invalid_audio")
+        wave, sr, audio = _read_audio(input_path, max_audio_seconds)
         result["input"] = dict(path=str(input_path), **audio)
         result["times_seconds"]["audio_decode"] = time.perf_counter() - started
         _json(output / "started.json", result)
@@ -504,7 +545,7 @@ def run_stage(stage: str, manifest_path: Path, input_path: Path, output: Path) -
             raise WorkerFailure("invalid_audio")
         _verify_assets(manifest, stage)
         result["assets_verified_after"] = True
-        result["status"] = "completed"
+        result["status"] = "needs_review" if result.pop("needs_review", False) else "completed"
     except Exception as exc:
         code = exc.code if isinstance(exc, WorkerFailure) else "worker_failed"
         result.update(status="failed", error=dict(code=code, message=SAFE_ERRORS[code]))
@@ -528,14 +569,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--max-audio-seconds", type=int, default=10)
     args = parser.parse_args(argv)
     try:
-        result = run_stage(args.stage, args.manifest, args.input, args.output)
+        result = run_stage(args.stage, args.manifest, args.input, args.output, args.max_audio_seconds)
     except WorkerFailure as exc:
         print(json.dumps(dict(status="failed", code=exc.code)))
         return 1
     print(json.dumps(dict(status=result["status"], **({"code": result["error"]["code"]} if result["status"] == "failed" else {}))))
-    return 0 if result["status"] == "completed" else 1
+    return 0 if result["status"] in {"completed", "needs_review"} else 1
 
 
 if __name__ == "__main__":
