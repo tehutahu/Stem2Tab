@@ -1,15 +1,15 @@
 import { expect, it, vi } from "vitest";
-import { buildLibraryTimeCursor, installLibraryTimeLayout, LIBRARY_TIME_RATE } from "../utils/libraryTimeLayout";
+import { buildLibraryTimeCursor, installLibraryTimeLayout } from "../utils/libraryTimeLayout";
 
 function fixture(){
   const beats=[{absoluteDisplayStart:0,playbackStart:0,notes:[]},{absoluteDisplayStart:480,playbackStart:960,notes:[]},{absoluteDisplayStart:1920,playbackStart:2880,notes:[]}];
   const master={index:0,start:0,timeSignatureNumerator:4,timeSignatureDenominator:4,tempoAutomations:[],calculateDuration:()=>3840};
   const bar={voices:[{beats}]};
   const score={tempo:120,tracks:[{staves:[{isPercussion:false,transpositionPitch:0,tuning:[],bars:[bar]}]}],masterBars:[master]};
-  const info:any={};
+  const info:any={getPreBeatSize:()=>0,getPostBeatSize:()=>0};
   const r={bar,layoutingInfo:info,_preBeatGlyphs:{width:50},_postBeatGlyphs:{width:8},x:99,y:99,scaleToWidth:vi.fn()};
   const system={masterBarsRenderers:[{masterBar:master,renderers:[r]}],_allStaves:[{barRenderers:[r],topSpacing:3,topOverflow:2}],width:0,accoladeWidth:12,finalizeSystem:vi.fn()};
-  const layout={_fitSystem:vi.fn((_system:any)=>{})};const api:any={renderer:{instance:{layout,score}}};
+  const layout={_fitSystem:vi.fn((_system:any)=>{}),pagePadding:[0,0,0,0],width:846};const api:any={renderer:{instance:{layout,score,settings:{display:{scale:1}},width:846}}};
   return {api,score,layout,system,r,info};
 }
 it('uses playback time for library columns, retaining glyph objects and score values',()=>{
@@ -34,14 +34,14 @@ function cursorFixture(secondX=280):any{
   return {tickCache:{masterBars:[{masterBar:master,start:0,end:3840}]},renderer:{boundsLookup:{findMasterBar:()=>({visualBounds:{x:0,y:50,w:900,h:130},bars:[{beats:[{beat:{playbackStart:0},onNotesX:100},{beat:{playbackStart:960},onNotesX:secondX}]}]})}}};
 }
 it('uses measured glyph origins and a constant time rate through rests and the bar end',()=>{
-  const bars=buildLibraryTimeCursor(cursorFixture(),120);expect(bars[0].points).toEqual([{tick:0,x:100},{tick:3840,x:100+2*LIBRARY_TIME_RATE}]);
+  const bars=buildLibraryTimeCursor(cursorFixture(),{rates:new Map([[0,360*60/120/960]])});expect(bars[0].points).toEqual([{tick:0,x:100},{tick:3840,x:100+2*360}]);
 });
 it('refuses a rendered column that is not at its actual playback time',()=>{
-  expect(()=>buildLibraryTimeCursor(cursorFixture(300),120)).toThrow(/一致しません/);
+  expect(()=>buildLibraryTimeCursor(cursorFixture(300),{rates:new Map([[0,360*60/120/960]])})).toThrow(/一致しません/);
 });
 it('also validates simultaneous TAB columns rather than hiding their offset during deduplication',()=>{
   const api=cursorFixture(),bounds=api.renderer.boundsLookup.findMasterBar();
   bounds.bars.push({beats:[{beat:{playbackStart:0},onNotesX:101}]});
   api.renderer.boundsLookup.findMasterBar=()=>bounds;
-  expect(()=>buildLibraryTimeCursor(api,120)).toThrow(/五線譜とTAB/);
+  expect(()=>buildLibraryTimeCursor(api,{rates:new Map([[0,360*60/120/960]])})).toThrow(/五線譜とTAB/);
 });

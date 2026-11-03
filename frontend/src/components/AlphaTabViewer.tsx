@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { AlphaTabApi, type synth } from "@coderline/alphatab";
 
+import "./MidiTrialViewer.css";
 import { ALPHATAB_RESOURCES } from "../config";
 import type { FretboardNote } from "./Fretboard";
 
@@ -129,8 +130,8 @@ function AlphaTabViewer({
   };
 
   return (
-    <div style={{ display: "grid", gap: "0.75rem" }}>
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+    <div className="score-viewer" style={{ display: "grid", gap: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" onClick={handlePlay} disabled={status !== "ready"}>
           ▶ Play
         </button>
@@ -142,6 +143,7 @@ function AlphaTabViewer({
         </button>
         <span style={{ color: "#4b5563" }}>State: {status}</span>
       </div>
+      <div className="legacy-score-frame" role="region" aria-label="譜面・横スクロール可能" tabIndex={0}>
       <div
         ref={containerRef}
         style={{
@@ -150,10 +152,11 @@ function AlphaTabViewer({
           minHeight: "200px",
           borderRadius: "8px",
           background: "#f9fafb",
-          overflow: "hidden",
+          minWidth: 0,
         }}
       >
         AlphaTab player will render here.
+      </div>
       </div>
       {error && <p style={{ color: "#dc2626" }}>AlphaTab error: {error}</p>}
     </div>
