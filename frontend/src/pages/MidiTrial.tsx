@@ -6,7 +6,7 @@ import { isTrialSummary, MidiTrialSummary, pitchName } from "../utils/midiTrial"
 import { readBassTabConfig } from "../utils/bassTabConfig";
 const Viewer = lazy(() => import("../components/MidiTrialViewer"));
 
-export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: string; jobSource?: { jobId: string; name: string } } = {}): JSX.Element {
+export default function MidiTrial({ savedTrialId, jobSource, tempoSourceJobId }: { savedTrialId?: string; jobSource?: { jobId: string; name: string }; tempoSourceJobId?: string } = {}): JSX.Element {
   const [musicalScoreUrl, setMusicalScoreUrl] = useState<MusicalClockSelection | null>(null);
   const [sourceRead, setSourceRead] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -137,7 +137,7 @@ export default function MidiTrial({ savedTrialId, jobSource }: { savedTrialId?: 
       <h4>成果物ダウンロード</h4><ul>{result.artifacts.filter((a) => a.key !== "gp5-preview" || result.gp5.status === "written").map((artifact) => <li key={artifact.key}><a href={`${API_BASE}${artifact.url}`} download>{artifact.key === "original-midi" ? "元MIDI（入力そのもの）" : artifact.key === "storage-clock-xml" ? "時刻保持MusicXML（保存クロック）" : artifact.key === "gp5-preview" ? "GP5運指プレビュー（リズム非保持）" : artifact.kind}: {artifact.filename}</a> ({artifact.bytes} bytes)<details><summary>SHA-256</summary><code>{artifact.sha256}</code></details></li>)}</ul>
       <p><a href={`/notation-trial/${result.trial_id}`}>この保存MIDIから運指・リズム別版を選択</a></p>
       {xml && <>
-        <MusicalClockSettings key={result.trial_id} trial={result} onSelect={setMusicalScoreUrl} />
+        <MusicalClockSettings key={result.trial_id} trial={result} tempoSourceJobId={tempoSourceJobId} onSelect={setMusicalScoreUrl} />
         {doubleClock && !musicalScoreUrl && <p role="note">旧リンクの2倍保存クロック表記を表示中です。{result.storage_clock.tempo_bpm * 2} BPMは音楽的テンポの推定値ではありません。4/4・原点0秒の表記上の仮定です。<a href={`/midi-trial/saved/${result.trial_id}`}>原版に戻る</a></p>}
         <label>横配置 <select disabled={!!musicalScoreUrl} value={musicalScoreUrl ? "engraved" : spacing} onChange={event=>setSpacing(event.target.value === "time" ? "time" : "engraved")}><option value="engraved">通常譜刻（読みやすさ優先）</option><option value="time">時間比例（等速カーソル・発音位置同期）</option></select></label>
         <p>横配置・TABの切替は再生を停止して0秒へ戻します。元データ・記譜テンポ・再生速度は変えません。</p>

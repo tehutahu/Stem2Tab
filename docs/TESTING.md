@@ -721,3 +721,46 @@ No configured transcription model is required for this saved-MIDI review. An
 unconfigured model remains an explicit unavailable state on the audio page.
 Synthetic browser checks establish system behavior, not real-song BPM accuracy,
 note accuracy, listening acceptance or human approval of the design.
+
+## Audio BPM suggestions
+
+The [audio estimator](evaluation/AUDIO_TEMPO.md) has a separate source-identity
+and uncertainty contract from the exact musical-clock exporter. Its repository
+tests synthesize audio and exercise real upload and stored-source API paths,
+including complete normal jobs and explicitly created review candidates.
+No model or real recording is required. Run all evaluation and API unit tests
+with the full backend unit command above. Reproduce the in-memory synthetic
+signal checks from `backend/` with:
+
+```sh
+PYTHONPATH=$PWD uv run --no-sync python -B -m src.evaluation.audio_tempo_synthetic --output benchmark_results/audio-tempo-synthetic.json
+```
+
+The generated report separates primary, octave-family and complete-candidate
+coverage from refusals. It does not establish real-song accuracy. Independent
+review additionally uses a frozen thirty-case suite; a known syncopated case
+still misses the intended musical beat, so the UI must retain manual input and
+state that candidate families are not exhaustive.
+
+For local visual review of the new controls, create a fresh paired synthetic
+WAV/MIDI directory from the repository root:
+
+```sh
+backend/.venv/bin/python scripts/create_tempo_preview.py --output-dir /tmp/stem2tab-tempo-fixtures-new
+```
+
+Build and run the existing loopback launcher with a fresh data directory and
+unused ports. Import `synthetic-bpm-120.mid` as local MIDI with a 4-string bass,
+then explicitly select `synthetic-bpm-120.wav` in the audio BPM panel. The server
+labels standalone audio/MIDI correspondence unverified even for this known
+generated pair. Its 24-second pulse is 120 BPM with onset origin 0.25 seconds.
+Selecting a BPM fills only BPM/evidence, with an explicit replacement choice for
+existing manual values. Enter 4/4 and origin 0.25 yourself if creating the exact
+clock example. No estimation action may create that derivative or move playback.
+
+Use the [UI proof recipe](TEMPO_UI_REVIEW.md) for controlled failures, delayed
+responses, malformed reports, source changes, no-evidence and unstable results.
+The real API/browser review also checks verified saved audio, changed receipts,
+original file hashes, existing score ticks and paused player position. Hashes,
+results and screenshots stay in fresh ignored or temporary directories; never
+add real recordings or model assets to the tests or repository.

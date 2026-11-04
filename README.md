@@ -321,7 +321,12 @@ overshooting note/rest columns. Originals and existing GP5 preview files stay in
 The saved clock does not establish the song's BPM. Blank [musical-clock
 settings](docs/evaluation/MUSICAL_CLOCK.md) accept an explicit quarter BPM,
 meter and downbeat origin and export a separate exact MusicXML/report without
-quantization or source changes. No tempo estimation runs. Preview is enabled only
+quantization or source changes. Optional [audio BPM suggestions](docs/evaluation/AUDIO_TEMPO.md)
+analyze a verified saved selection or an explicitly uploaded WAV/FLAC. They expose
+measured pulse hypotheses, half/double alternatives and uncalibrated periodicity;
+they do not establish the musical beat. Adopting a candidate is an explicit edit
+to BPM/evidence only. Meter, downbeat, derivatives and playback stay under the
+existing explicit controls. Preview is enabled only
 when the renderer can preserve every event and tail exactly; fractional BPM and
 many unquantized boundaries remain download-only. Older doubled-clock links
 remain readable as notation comparisons, not measured song-tempo candidates.

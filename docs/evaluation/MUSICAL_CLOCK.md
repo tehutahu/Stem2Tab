@@ -5,6 +5,13 @@ not establish the song's pulse, meter, or downbeat. The historical doubled
 storage-clock URL remains readable, but the UI no longer offers it as a measured
 musical BPM candidate.
 
+Optional [audio BPM suggestions](AUDIO_TEMPO.md) are a separate analysis step.
+Their candidates can be explicitly copied into the BPM/evidence inputs. They do
+not infer meter or a measure downbeat, create a derivative, or alter playback.
+The fixed-clock exporter described here still records explicit-user-input and
+performs no estimation itself. Its `not-estimated` field describes that exporter,
+while the separate audio report retains the estimation method and source.
+
 Saved MIDI results now expose blank, explicit musical settings. Enter a
 quarter-note BPM, meter, and downbeat origin in source seconds. An optional note
 records the reason for those choices. Creating a version returns separate

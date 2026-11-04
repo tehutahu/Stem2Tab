@@ -1,8 +1,9 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MusicalClockSettings from "../components/MusicalClockSettings";
 import { readMusicalClock, isMusicalClockDerivative, type MusicalClockDerivative } from "../utils/musicalClock";
 import type { MidiTrialSummary } from "../utils/midiTrial";
+import { tempoJobId, tempoReport, tempoResponse, tempoSource, tempoTrial } from "./tempoFixtures";
 
 const trial: MidiTrialSummary = {
   trial_id: "1234", status: "completed", source_kind: "local-midi", original_filename: "synthetic.mid",
@@ -81,4 +82,66 @@ it("validates explicit precision, never converts blank fields to zero, and rejec
   expect(isMusicalClockDerivative(derivative())).toBe(true);
   const body: unknown={...derivative(),report:{...derivative().report,confidence:.99}};
   expect(isMusicalClockDerivative(body)).toBe(false);
+});
+
+it("keeps manual edits and an active exact derivative intact through audio estimation and explicit BPM adoption", async () => {
+  let finish: ((response: Response) => void) | undefined;
+  const fetcher = vi.fn().mockResolvedValueOnce(tempoResponse(derivative()))
+    .mockResolvedValueOnce(tempoResponse(tempoSource))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetcher);
+  const createObjectURL = vi.fn().mockReturnValueOnce("blob:xml").mockReturnValueOnce("blob:report");
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+  const onSelect = vi.fn();
+  const ui = render(<MusicalClockSettings trial={tempoTrial} tempoSourceJobId={tempoJobId} onSelect={onSelect} />);
+  fill(); fireEvent.click(screen.getByRole("button", { name: "入力した音楽的クロックで別版を作成" }));
+  await screen.findByRole("link", { name: "別版MusicXMLを保存" });
+  fireEvent.click(screen.getByRole("button", { name: /この別版を通常譜刻で表示/ }));
+  expect(onSelect).toHaveBeenCalledTimes(2);
+  fireEvent.change(screen.getByLabelText("推定する音声"), { target: { value: "stored" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存音声の対応を確認" })); await screen.findByText(/対応確認済み/);
+  fireEvent.click(screen.getByRole("button", { name: "選択した音声からBPM候補を推定" }));
+  fireEvent.change(screen.getByLabelText("音楽的BPM（四分音符）"), { target: { value: "131" } });
+  fireEvent.change(screen.getByLabelText(/設定の根拠メモ/), { target: { value: "later manual evidence" } });
+  await act(async () => { finish?.(tempoResponse(tempoReport())); });
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(131);
+  expect(screen.getByLabelText(/設定の根拠メモ/)).toHaveValue("later manual evidence");
+  expect(onSelect).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: /^60 BPMを入力候補に選ぶ/ }));
+  expect(screen.getByRole("region", { name: "BPM候補への置き換え確認" })).toHaveTextContent("later manual evidence");
+  expect(screen.getByRole("region", { name: "BPM候補への置き換え確認" })).toHaveFocus();
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(131);
+  fireEvent.click(screen.getByRole("button", { name: "手入力を保持する" }));
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(131);
+  fireEvent.click(screen.getByRole("button", { name: /^60 BPMを入力候補に選ぶ/ }));
+  fireEvent.change(screen.getByLabelText("音楽的BPM（四分音符）"), { target: { value: "132" } });
+  expect(screen.queryByRole("region", { name: "BPM候補への置き換え確認" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^60 BPMを入力候補に選ぶ/ }));
+  fireEvent.click(screen.getByRole("button", { name: "入力済みBPM・根拠メモを60 BPMの候補で置き換える" }));
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(60);
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveFocus();
+  expect(screen.getByLabelText("音楽的拍子")).toHaveValue("3/4");
+  expect(screen.getByLabelText(/拍原点（/)).toHaveValue(.25);
+  expect(screen.getByLabelText(/設定の根拠メモ/)).toHaveProperty("value", expect.stringContaining(tempoSource.audio_sha256));
+  expect(screen.getByRole("link", { name: "別版MusicXMLを保存" })).toHaveAttribute("href", "blob:xml");
+  expect(fetcher).toHaveBeenCalledTimes(3); expect(onSelect).toHaveBeenCalledTimes(2); expect(createObjectURL).toHaveBeenCalledTimes(2);
+  // Only the source hint changes. Manual settings and the existing exact version survive.
+  ui.rerender(<MusicalClockSettings trial={tempoTrial} tempoSourceJobId="34567890-1234-4123-8123-123456789012" onSelect={onSelect} />);
+  expect(screen.queryByText("BPM候補あり・未反映")).toBeNull();
+  expect(screen.getByLabelText("推定する音声")).toHaveValue("");
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(60);
+  expect(screen.getByRole("link", { name: "別版MusicXMLを保存" })).toHaveAttribute("href", "blob:xml");
+  expect(fetcher).toHaveBeenCalledTimes(3); expect(onSelect).toHaveBeenCalledTimes(2);
+});
+
+it("adopts only BPM/evidence into blank fields and never infers meter, origin or a derivative", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(tempoResponse(tempoSource)).mockResolvedValueOnce(tempoResponse(tempoReport())); vi.stubGlobal("fetch", fetcher);
+  const onSelect = vi.fn(); render(<MusicalClockSettings trial={tempoTrial} tempoSourceJobId={tempoJobId} onSelect={onSelect} />);
+  fireEvent.change(screen.getByLabelText("推定する音声"), { target: { value: "stored" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存音声の対応を確認" })); await screen.findByText(/対応確認済み/);
+  fireEvent.click(screen.getByRole("button", { name: "選択した音声からBPM候補を推定" })); await screen.findByText("BPM候補あり・未反映");
+  fireEvent.click(screen.getByRole("button", { name: /^120 BPMを入力候補に選ぶ/ }));
+  expect(screen.getByLabelText("音楽的BPM（四分音符）")).toHaveValue(120);
+  expect(screen.getByLabelText("音楽的拍子")).toHaveValue(""); expect(screen.getByLabelText(/拍原点（/)).toHaveValue(null);
+  expect(screen.queryByRole("link", { name: "別版MusicXMLを保存" })).toBeNull(); expect(fetcher).toHaveBeenCalledTimes(2); expect(onSelect).not.toHaveBeenCalled();
 });

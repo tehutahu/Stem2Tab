@@ -2,19 +2,38 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { API_BASE } from "../config";
 import type { MidiTrialSummary } from "../utils/midiTrial";
 import { isMusicalClockDerivative, readMusicalClock, type MusicalClockDerivative, type MusicalClockSelection } from "../utils/musicalClock";
+import TempoEstimatePanel from "./TempoEstimate";
+import type { TempoAdoption } from "../utils/tempoEstimate";
 
 type Version = { derivative: MusicalClockDerivative; xmlUrl: string; reportUrl: string };
 
 /** User-declared clock settings and independent exact XML/report downloads. */
-export default function MusicalClockSettings({ trial, onSelect }: {
-  trial: MidiTrialSummary; onSelect: (selection: MusicalClockSelection | null) => void;
+export default function MusicalClockSettings({ trial, onSelect, tempoSourceJobId }: {
+  trial: MidiTrialSummary; onSelect: (selection: MusicalClockSelection | null) => void; tempoSourceJobId?: string;
 }): JSX.Element {
   const [bpm, setBpm] = useState(""), [meter, setMeter] = useState(""), [origin, setOrigin] = useState("");
   const [evidence, setEvidence] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [version, setVersion] = useState<Version | null>(null);
+  const [replacement, setReplacement] = useState<{ selection: TempoAdoption; revision: number } | null>(null);
+  const [adoptionNotice, setAdoptionNotice] = useState("");
+  const manualRevision = useRef(0);
+  const replacementPanel = useRef<HTMLDivElement>(null);
+  const bpmInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const urls = useRef<string[]>([]);
   useEffect(() => () => { request.current?.abort(); urls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
+  useEffect(() => { setReplacement(null); setAdoptionNotice(""); }, [trial.trial_id, trial.input_sha256, tempoSourceJobId]);
+  useEffect(() => { if (replacement) replacementPanel.current?.focus(); }, [replacement]);
+  const edit = (): void => { manualRevision.current++; setReplacement(null); setAdoptionNotice(""); };
+  const adopt = (selection: TempoAdoption): void => {
+    manualRevision.current++; setBpm(selection.bpm); setEvidence(selection.evidence); setReplacement(null);
+    setAdoptionNotice(`${selection.bpm} BPMと音声解析の根拠を入力欄に反映しました。拍子・拍原点、作成済み別版、表示・再生は変更していません。別版の作成は別の明示操作です。`);
+    bpmInput.current?.focus();
+  };
+  const choose = (selection: TempoAdoption): void => {
+    if (bpm !== "" || evidence !== "") setReplacement({ selection, revision: manualRevision.current });
+    else adopt(selection);
+  };
   const create = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     const clock = readMusicalClock(bpm, meter, origin, evidence);
@@ -44,19 +63,26 @@ export default function MusicalClockSettings({ trial, onSelect }: {
   const report = version?.derivative.report;
   return <section aria-label="音楽的クロック設定">
     <h4>音楽的BPM・拍子・拍原点（明示入力）</h4>
-    <p>保存クロック {trial.storage_clock.tempo_bpm} BPM / {trial.storage_clock.meter} は秒を保持するための値です。実曲のテンポ推定値ではありません。音楽的クロックは未設定・未推定、信頼度も未評価です。</p>
-    <p>MIDIの発音間隔だけでは拍・細分音符・半テンポ・倍テンポを区別できません。無拍・テンポ変動も自動判定しません。ここでは利用者が指定した一定テンポの別版を作ります。変動テンポの推定・テンポマップには未対応です。</p>
+    <p>保存クロック {trial.storage_clock.tempo_bpm} BPM / {trial.storage_clock.meter} は秒を保持するための値です。実曲のテンポ推定値ではありません。音楽的クロックの初期状態は未設定・未推定です。音声候補を選ぶ場合も品質は未校正で、正解は未検証です。</p>
+    <p>MIDIの発音間隔だけでは拍・細分音符・半テンポ・倍テンポを区別できません。音声から候補を調べる場合も、ここで作る別版は利用者が明示した一定テンポです。変動テンポのテンポマップ作成には未対応です。</p>
+    <TempoEstimatePanel key={`${trial.trial_id}:${trial.input_sha256}:${tempoSourceJobId ?? ""}`} trial={trial} sourceJobId={tempoSourceJobId} onAdopt={choose} onInvalidate={() => setReplacement(null)} adoptionDisabled={busy} />
+    {replacement && <div ref={replacementPanel} tabIndex={-1} className="tempo-replacement" role="region" aria-label="BPM候補への置き換え確認">
+      <p>入力済みBPM「{bpm || "未入力"}」と根拠メモ「{evidence || "未入力"}」があります。候補 {replacement.selection.bpm} BPMと音声解析の根拠に置き換えますか。拍子「{meter || "未入力"}」と拍原点「{origin || "未入力"}」は保持します。</p>
+      <button type="button" disabled={busy} onClick={() => { if (manualRevision.current === replacement.revision) adopt(replacement.selection); else setReplacement(null); }}>入力済みBPM・根拠メモを{replacement.selection.bpm} BPMの候補で置き換える</button>
+      <button type="button" onClick={() => setReplacement(null)}>手入力を保持する</button>
+    </div>}
+    {adoptionNotice && <p role="status">{adoptionNotice}</p>}
     <form onSubmit={create} style={{ display: "grid", gap: 8 }}>
-      <label>音楽的BPM（四分音符） <input required type="number" min="20" max="300" step="0.001" value={bpm} onChange={event => setBpm(event.target.value)} /></label>
+      <label>音楽的BPM（四分音符） <input ref={bpmInput} required type="number" min="20" max="300" step="0.001" value={bpm} onChange={event => { edit(); setBpm(event.target.value); }} /></label>
       <label>音楽的拍子 <input required placeholder="例: 4/4" value={meter} onChange={event => setMeter(event.target.value)} /></label>
       <label>拍原点（小節頭・元MIDI開始から秒） <input required type="number" min="0" max="600" step="0.000001" value={origin} onChange={event => setOrigin(event.target.value)} /></label>
-      <label>設定の根拠メモ（任意） <input maxLength={500} value={evidence} onChange={event => setEvidence(event.target.value)} /></label>
+      <label>設定の根拠メモ（任意） <input maxLength={500} value={evidence} onChange={event => { edit(); setEvidence(event.target.value); }} /></label>
       <p>原点より前の音も保持し、小節を前方へ延長します。音高・開始終了秒・速度・原MIDIは維持します。量子化はしません。XMLと設定レポートは別ファイルとして保存できます。</p>
       <button disabled={busy} type="submit">{busy ? "別版作成中…" : "入力した音楽的クロックで別版を作成"}</button>
     </form>
     {error && <p role="alert">{error}</p>}
     {version && report && <div>
-      <p>作成済み別版: 四分音符={report.clock.bpm} / {report.clock.numerator}/{report.clock.denominator} / 拍原点 {report.clock.origin_seconds}秒。根拠: 利用者の明示入力{report.clock.evidence ? ` / ${report.clock.evidence}` : ""}。推定・正解の検証はしていません。</p>
+      <p>作成済み別版: 四分音符={report.clock.bpm} / {report.clock.numerator}/{report.clock.denominator} / 拍原点 {report.clock.origin_seconds}秒。根拠: 利用者の明示入力{report.clock.evidence ? ` / ${report.clock.evidence}` : ""}。この別版作成はテンポ推定を行いません。選んだ音声候補や手入力が実曲の正解かは未検証です。</p>
       <p>半テンポ {report.ambiguity_bpm[0]} / 倍テンポ {report.ambiguity_bpm[1]} BPMも解釈上の候補です。どれが拍かを判断する根拠はなく、自動適用しません。</p>
       <p><a href={version.xmlUrl} download="musical-clock.musicxml">別版MusicXMLを保存</a>{" / "}<a href={version.reportUrl} download="musical-clock-report.json">設定・根拠レポートを保存</a></p>
       {report.preview_eligible ? <button onClick={() => onSelect(report.preview_events && report.preview_horizon_ticks !== null ? { url: version.xmlUrl, proof: { bpm: report.clock.bpm, events: report.preview_events, horizonTicks: report.preview_horizon_ticks } } : null)}>この別版を通常譜刻で表示（再生停止・0秒へ戻る）</button> : <p role="note">この設定はブラウザの整数BPM・四分音符960 tickでは厳密に再現できません。近似再生は行わず、正確なMusicXMLとレポートを保存できます。</p>}
