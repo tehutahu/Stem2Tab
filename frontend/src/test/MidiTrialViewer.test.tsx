@@ -163,7 +163,7 @@ it("changes engraving size without destroying or resetting the current player", 
 
 it("labels user-declared clock previews as seconds-preserving without claiming quantization", () => {
   render(<MidiTrialViewer scoreUrl="/musical-clock.xml" variant="musical-clock" />);
-  expect(screen.getByText(/利用者が明示した固定BPM/)).toHaveTextContent("量子化・自動推定は行いません");
+  expect(screen.getByText(/利用者が明示した固定BPM/)).toHaveTextContent("この表示では量子化・追加の推定は行いません");
   expect(screen.getByText(/利用者が明示した固定BPM/)).toHaveTextContent("素材先頭の時刻0");
   expect(screen.queryByText(/量子化別版です/)).toBeNull();
 });

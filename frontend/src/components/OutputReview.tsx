@@ -79,6 +79,6 @@ export default function OutputReview({ jobId, info }: { jobId: string; info: Out
     {(state.kind === "unknown" || state.kind === "blocked" || state.kind === "rejected") && <p role="alert">{state.message}</p>}
     {state.kind === "pending" && <p role="status">候補を作成中です。再推論は行っていません。</p>}
     {(state.kind === "unknown" || state.kind === "pending" || state.kind === "blocked") && <button onClick={()=>{void load(state.id,false);}}>同じ候補IDを確認</button>}
-    {state.kind === "completed" && <p><Link to={`/midi-trial/saved/${state.trialId}?view=staff&spacing=time`}>{info.positive_note_count}音の別版を試聴・譜面で確認</Link></p>}
+    {state.kind === "completed" && <p><Link to={`/midi-trial/saved/${state.trialId}?view=staff&spacing=time&tempo_source_job=${jobId}`}>{info.positive_note_count}音の別版を試聴・譜面で確認</Link></p>}
   </section>;
 }

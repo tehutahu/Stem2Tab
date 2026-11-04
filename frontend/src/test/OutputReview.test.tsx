@@ -19,7 +19,7 @@ it("keeps all source rows visible and does nothing until an explicit choice",asy
   const form:unknown=fetch.mock.calls[0]?.[1]?.body;
   if(!(form instanceof FormData))throw new Error("Missing explicit review form");
   expect(form.get("policy")).toBe("exclude_zero_duration");expect(form.get("request_id")).toBe(id);
-  expect(screen.getByRole("link")).toHaveAttribute("href",`/midi-trial/saved/${id}?view=staff&spacing=time`);
+  expect(screen.getByRole("link")).toHaveAttribute("href",`/midi-trial/saved/${id}?view=staff&spacing=time&tempo_source_job=${job}`);
 });
 it("recovers an uncertain creation with GET of the same ID and no second POST",async()=>{
   const fetch=vi.fn().mockResolvedValueOnce(new Response("",{status:500})).mockResolvedValueOnce(response(completed));vi.stubGlobal("fetch",fetch);mount();

@@ -186,7 +186,7 @@ it("keeps a completed result and precision warning visible while grouping diagno
   vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response(health)).mockResolvedValueOnce(response({ ...running, status: "completed", stage: "completed", midi_trial_id: id, available_files: ["performance.mid", "model-notes.json"] })));
   mount();
   expect(await screen.findByRole("heading", { name: "採譜結果を保存しました" })).toBeVisible();
-  expect(screen.getByRole("link", { name: "3. 試聴・五線譜・TAB・保存へ" })).toHaveAttribute("href", `/midi-trial/saved/${id}`);
+  expect(screen.getByRole("link", { name: "3. 試聴・五線譜・TAB・保存へ" })).toHaveAttribute("href", `/midi-trial/saved/${id}?tempo_source_job=${id}`);
   expect(screen.getByRole("link", { name: "原MIDIを保存" })).toBeVisible();
   const disclosure = screen.getByText("音符JSON・推論記録を保存").closest("details");
   expect(disclosure).not.toHaveAttribute("open");

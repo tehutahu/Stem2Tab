@@ -10,7 +10,8 @@ import Transcribe from "./pages/Transcribe";
 
 function SavedMidiTrial(): JSX.Element {
   const { trialId } = useParams();
-  return <MidiTrial key={trialId} savedTrialId={trialId ?? ""} />;
+  const [query] = useSearchParams();
+  return <MidiTrial key={trialId} savedTrialId={trialId ?? ""} tempoSourceJobId={query.get("tempo_source_job") ?? undefined} />;
 }
 
 function JobMidiImport(): JSX.Element {

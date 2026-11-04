@@ -12,6 +12,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, statu
 from fastapi.responses import FileResponse
 
 from src.api.schemas import JobCreateResponse, JobStatus, JobStatusResponse
+from src.api.tempo_estimates import router as tempo_estimate_router
 from src.api.musical_clock import router as musical_clock_router
 from src.api.midi_trials import router as midi_trial_router
 from src.api.muscriptor_trials import router as muscriptor_trial_router
@@ -46,6 +47,7 @@ MIME_MAP = {
 app = FastAPI(title="Stem2Tab API")
 app.include_router(midi_trial_router)
 app.include_router(musical_clock_router)
+app.include_router(tempo_estimate_router)
 app.include_router(muscriptor_trial_router)
 app.include_router(listening_trial_router)
 app.include_router(notation_trial_router)
