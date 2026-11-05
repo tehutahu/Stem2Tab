@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import platform
 import signal
+import stat
 import subprocess
 import threading
 import time
@@ -195,13 +196,44 @@ def _state(folder: Path, *, status: str = "running", stage: str,
 
 def _acquire_slot(base: Path) -> int:
     import fcntl
-    descriptor = os.open(base/"execution.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    shared = os.environ.get("STEM2TAB_GPU_LOCK_PATH")
+    descriptor = None
     try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        os.close(descriptor)
-        _reject(409, "trial_busy", "One local trial is already running. Wait for it; automatic duplicate runs are disabled.")
-    return descriptor
+        if shared is None:
+            descriptor = os.open(base/"execution.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        else:
+            # All servers must use the same administrator-managed, stable path.
+            # Neither the file nor its parents may be replaced while servers run.
+            path = Path(shared)
+            if not path.is_absolute() or path.resolve(strict=True) != path or path.is_symlink():
+                raise ValueError("Existing regular absolute lock required")
+            expected = path.stat(follow_symlinks=False)
+            if not stat.S_ISREG(expected.st_mode):
+                raise ValueError("Regular shared lock required")
+            descriptor = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+            opened = os.fstat(descriptor)
+            if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino):
+                raise ValueError("Shared lock changed before open")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            _reject(409, "trial_busy", "One local trial is already running. Wait for it; automatic duplicate runs are disabled.")
+        if shared is not None:
+            # Detect changes through acquisition. Later replacement still requires
+            # the administrator's non-replacement contract; flock locks an inode.
+            if path.resolve(strict=True) != path or path.is_symlink():
+                raise ValueError("Shared lock path changed during acquisition")
+            current = path.stat(follow_symlinks=False)
+            if (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino):
+                raise ValueError("Shared lock changed during acquisition")
+        acquired = descriptor
+        descriptor = None  # Ownership passes to the caller only after all checks.
+        return acquired
+    except (OSError, ValueError, RuntimeError):
+        _reject(503, "gpu_lock_unavailable", "The GPU lock is unavailable; no model was started.")
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _owner_token(pid: int) -> str | None:
