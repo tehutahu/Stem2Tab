@@ -118,7 +118,7 @@ async function scenario(name, width = 1280) {
       assert.equal(reads, 0);
     } else {
       await page.getByRole('heading', { name: '採譜結果を保存しました' }).waitFor();
-      assert.equal(await page.getByRole('link', { name: '3. 試聴・五線譜・TAB・保存へ' }).getAttribute('href'), `/midi-trial/saved/${id}`);
+      assert.equal(await page.getByRole('link', { name: '3. 試聴・五線譜・TAB・保存へ' }).getAttribute('href'), `/midi-trial/saved/${id}?tempo_source_job=${id}`);
       const diagnostics = page.getByText('音符JSON・推論記録を保存', { exact: true });
       await diagnostics.focus(); await page.keyboard.press('Enter');
       assert.equal(await page.getByRole('link', { name: '元の全音符JSONを保存' }).isVisible(), true);
