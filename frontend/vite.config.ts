@@ -1,8 +1,20 @@
-import { defineConfig } from "vite";
+import { defineConfig, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 
 const port = Number(process.env.WEB_PORT) || 4173;
 const apiProxyTarget = process.env.API_PROXY_TARGET || "http://api:8000";
+const apiProxy: ProxyOptions = {
+  target: apiProxyTarget,
+  changeOrigin: true,
+  configure(proxy) {
+    proxy.on("error", (_error, _request, response) => {
+      if ("writeHead" in response && !response.headersSent) {
+        response.writeHead(503, { "content-type": "application/json" });
+        response.end(JSON.stringify({ detail: { code: "api_unavailable", message: "Start or restore the local API service." } }));
+      }
+    });
+  },
+};
 
 export default defineConfig({
   plugins: [react()],
@@ -10,20 +22,14 @@ export default defineConfig({
     host: true,
     port,
     proxy: {
-      "/api": {
-        target: apiProxyTarget,
-        changeOrigin: true,
-      },
+      "/api": apiProxy,
     },
   },
   preview: {
     host: true,
     port,
     proxy: {
-      "/api": {
-        target: apiProxyTarget,
-        changeOrigin: true,
-      },
+      "/api": apiProxy,
     },
   },
   build: {

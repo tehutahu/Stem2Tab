@@ -1,0 +1,217 @@
+import { useEffect, useRef, useState } from "react";
+import { AlphaTabApi, model } from "@coderline/alphatab";
+import { pitchName } from "../utils/midiTrial";
+import { buildCursorMap, cursorAtTick, type CursorBar } from "../utils/scoreCursor";
+import { applyBassTab, TabUnavailableError } from "../utils/scoreTab";
+import type { BassTabConfig } from "../utils/bassTabConfig";
+import { buildTimeScore } from "../utils/timeScore";
+import { installLibraryTimeLayout, buildLibraryTimeCursor, type LibraryTimeGeometry } from "../utils/libraryTimeLayout";
+import { installReadableEngravingLayout } from "../utils/readableEngraving";
+import { PlaybackTransport } from "../utils/playbackTransport";
+import type { MusicalClockProof } from "../utils/musicalClock";
+import { prepareMusicalClockScore, verifyMusicalClockScore } from "../utils/musicalClockScore";
+import "./MidiTrialViewer.css";
+
+export default function MidiTrialViewer({ scoreUrl, variant = "storage", bassTab, musicalClockProof, spacing = "engraved" }: { scoreUrl: string; variant?: "storage" | "notation-clock" | "musical-clock" | "explicit" | "explicit-gp5"; bassTab?: BassTabConfig; musicalClockProof?: MusicalClockProof; spacing?: "engraved" | "time" }): JSX.Element {
+  const container = useRef<HTMLDivElement>(null);
+  const cursor = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<AlphaTabApi | null>(null);
+  const failed = useRef(false);
+  const transportRef = useRef<PlaybackTransport | null>(null);
+  const [rendered, setRendered] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [state, setState] = useState("停止");
+  const [pending, setPending] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [inspection, setInspection] = useState("読込中");
+  const [error, setError] = useState("");
+  const [cursorError, setCursorError] = useState("");
+  const [tabIssue, setTabIssue] = useState("");
+  const [scale, setScale] = useState("1");
+  const [overflow, setOverflow] = useState(false);
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+  const tuningKey = bassTab?.tuning.join(",");
+  const maxFret = bassTab?.maxFret;
+  useEffect(() => {
+    let alive = true;
+    let paths: CursorBar[] = [], currentTick = 0, previousBar = -1, previousY = -1;
+    let timeGeometry: LibraryTimeGeometry | null = null;
+    const updateCursor = (): void => {
+      const element = cursor.current;
+      if (!alive || !element) return;
+      const point = cursorAtTick(paths, currentTick);
+      element.hidden = !point;
+      if (!point) return;
+      element.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      element.style.height = `${point.height}px`;
+      element.dataset.bar = String(point.bar + 1); element.dataset.tick = String(point.tick);
+      const viewport = frame.current;
+      if (viewport && currentTick > 0) {
+        if (point.x < viewport.scrollLeft || point.x + 2 > viewport.scrollLeft + viewport.clientWidth) {
+          viewport.scrollLeft = Math.max(0, point.x - viewport.clientWidth / 2);
+        }
+      } else if (viewport) viewport.scrollLeft = 0;
+      if ((previousBar !== point.bar || previousY !== point.y) && currentTick > 0) {
+        const rect = element.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight || rect.top < 0) element.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+      previousBar = point.bar;
+      previousY = point.y;
+    };
+    const rebuildCursor = (): void => {
+      if (!alive || !api) return;
+      try {
+        if (spacing === "time" && timeGeometry) { paths = buildLibraryTimeCursor(api,timeGeometry); setCursorError(""); }
+        else {
+          const result = buildCursorMap(api); paths = result.bars;
+          setCursorError(result.unavailableBars.length ? `${result.unavailableBars.map(b=>b.index+1).join(", ")}小節では譜刻の音符位置が時刻順にならないため、赤線だけを非表示にします。譜面・音・再生時刻は保持しています。時間比例表示では全小節を同期できます。` : "");
+        }
+      }
+      catch (cause) { paths = []; setCursorError(String(cause)); }
+      updateCursor();
+    };
+    setCursorError("");
+    setTabIssue("");
+    setOverflow(false);
+    if (cursor.current) cursor.current.hidden = true;
+    failed.current = false;
+    const fail = (cause: unknown): void => {
+      if (!alive) return;
+      const wasFailed = failed.current;
+      failed.current = true; setReady(false);
+      transport?.dispose(); setPending(false);
+      let message = cause instanceof Error ? cause.message : String(cause);
+      if (!wasFailed) { try { api?.stop(); } catch (stopError) { message += ` / stop: ${String(stopError)}`; } }
+      setError(message);
+    };
+    setRendered(false); setReady(false); setState("停止"); setPending(false); setPosition(0); setDuration(0); setError(""); setInspection("読込中");
+    if (!container.current) return;
+    let api: AlphaTabApi | undefined;
+    let transport: PlaybackTransport | undefined;
+    const updateOverflow = (): void => {
+      const viewport = frame.current;
+      if (alive && viewport) setOverflow(viewport.scrollWidth > viewport.clientWidth + 1);
+    };
+    // alphaTab appends SVGs after its render callback. Observe the actual host
+    // rather than measuring the old DOM during renderFinished.
+    const scoreObserver = new MutationObserver(updateOverflow);
+    scoreObserver.observe(container.current, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+    try {
+      api = new AlphaTabApi(container.current, {
+        core: { scriptFile: "/alphatab/alphaTab.min.js", fontDirectory: "/alphatab/font/", engine: "svg", useWorkers: false, enableLazyLoading: false },
+        display: { ...(spacing === "time" ? { barsPerRow: 1 } : {}), scale: Number(scaleRef.current), padding: [12, 20, 12, 20] },
+        // SDK animated cursors extrapolate past the next beat; use absolute ticks.
+        player: { enablePlayer: true, soundFont: "/alphatab/soundfont/sonivox.sf2", enableCursor: false },
+      });
+      apiRef.current = api;
+      transport = new PlaybackTransport({
+        play: () => api!.play(), pause: () => api!.pause(), stop: () => api!.stop(),
+        seek: time => { api!.timePosition = time; },
+      }, snapshot => {
+        if (!alive || failed.current) return;
+        setState(snapshot.mode === "playing" ? "再生中" : snapshot.mode === "paused" ? "一時停止" : "停止");
+        setPending(snapshot.pending); setPosition(snapshot.time / 1000); setDuration(snapshot.end / 1000);
+        currentTick = snapshot.tick; updateCursor();
+      }, fail);
+      transportRef.current = transport;
+      api.scoreLoaded.on((score) => {
+        if (!alive) return;
+        if (variant === "musical-clock") {
+          try {
+            if (!musicalClockProof) throw new Error("音楽的クロックの原時刻検証データがありません。");
+            prepareMusicalClockScore(score); verifyMusicalClockScore(score, musicalClockProof);
+          } catch (cause) { fail(cause); return; }
+        }
+        let tabApplied = false;
+        if (tuningKey !== undefined && maxFret !== undefined) {
+          try { applyBassTab(score, { tuning: tuningKey.split(",").map(Number), maxFret }); tabApplied = true; }
+          catch (cause) {
+            if (cause instanceof TabUnavailableError) setTabIssue(cause.message);
+            else { fail(cause); return; }
+          }
+        }
+        // GP5 has no serialized clef in this writer. Use a bass clef for this
+        // explicitly selected bass derivative only; sounding notes stay intact.
+        if (variant === "explicit-gp5") {
+          for (const track of score.tracks) for (const staff of track.staves) {
+            staff.displayTranspositionPitch = 0;
+            for (const bar of staff.bars) bar.clef = model.Clef.F4;
+          }
+        }
+        const pitches: number[] = [];
+        const programs: number[] = [];
+        for (const track of score.tracks) {
+          programs.push(track.playbackInfo.program);
+          for (const staff of track.staves) for (const bar of staff.bars) for (const voice of bar.voices)
+            for (const beat of voice.beats) for (const note of beat.notes)
+              if (!note.isTieDestination) pitches.push(note.realValue);
+        }
+        const low = Math.min(...pitches), high = Math.max(...pitches);
+        setInspection(`論理発音数 ${pitches.length} / 音域 ${pitches.length ? `${low} (${pitchName(low)})–${high} (${pitchName(high)})` : "なし"} / 合成音プログラム (0始まり) ${programs.join(", ")}`);
+        if (spacing === "time") {
+          try { buildTimeScore(score,tabApplied); timeGeometry = installLibraryTimeLayout(api!); }
+          catch(cause) { fail(cause); return; }
+        } else {
+          try { installReadableEngravingLayout(api!); }
+          catch (cause) { fail(cause); }
+        }
+      });
+      api.renderStarted.on(() => { if (alive) {
+        paths = []; if (cursor.current) cursor.current.hidden = true;
+      } });
+      api.renderFinished.on(() => { if (alive) {
+        setRendered(true); rebuildCursor();
+        updateOverflow();
+      } });
+      api.playerReady.on(() => { if (alive && !failed.current) { setReady(true); rebuildCursor(); } });
+      api.playerStateChanged.on(args => { if (alive && !failed.current) transport?.stateChanged(args); });
+      api.playerPositionChanged.on(args => { if (alive && !failed.current) transport?.positionChanged(args); });
+      api.error.on(fail);
+      if (!api.load(scoreUrl)) fail("MusicXMLの読込を開始できませんでした。");
+    } catch (cause) { fail(cause); }
+    return () => { alive = false; scoreObserver.disconnect(); transport?.dispose(); if (transportRef.current === transport) transportRef.current = null; if (apiRef.current === api) apiRef.current = null; api?.destroy(); };
+  }, [scoreUrl, variant, tuningKey, maxFret, spacing, musicalClockProof]);
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || api.settings.display.scale === Number(scale)) return;
+    api.settings.display.scale = Number(scale);
+    api.updateSettings();
+    api.render();
+  }, [scale]);
+  const preservesTime = variant === "storage" || variant === "notation-clock" || variant === "musical-clock";
+  return <section className="score-viewer" aria-label={preservesTime ? "時刻保持MusicXMLプレビュー" : "明示リズム別版プレビュー"}>
+    {variant === "musical-clock" && <p>利用者が明示した固定BPM・拍子・拍原点による表記の別版です。この表示では量子化・追加の推定は行いません。音高、開始・終了秒、素材先頭の時刻0と再生速度を保持します。音楽的正解は未確認です。</p>}
+    {variant === "notation-clock" && <p><strong>記譜テンポ2倍の候補版・実時間維持。音高、開始・終了秒、再生速度は原版と同じです。量子化ではなく、小節を区切り直した比較用の表記です。実曲のテンポが確定した意味ではありません。</strong></p>}
+    <p>{variant === "musical-clock" ? "時刻保持MusicXMLの合成音プレビューです。原音色・ベロシティ・コントローラは再現しません。指定した拍原点は小節線の位置で、再生開始0秒は元MIDIと共通です。" : preservesTime ? "時刻保持MusicXMLの合成音プレビューです。元音声・元MIDIの再生ではありません。表示上の4/4とテンポは表記のためのクロックで、音楽的な拍子・テンポは未検証です。移調は行いません。" : "利用者が明示したBPM・拍子・拍原点による量子化別版です。原時刻版ではありません。合成音色で再生し、時刻0は指定した拍原点です。音楽的正解・原音色の一致を保証しません。"}</p>
+    {variant === "explicit-gp5" && <p>GP5は実音高をヘ音記号で表示します（慣習的な1オクターブ上の記譜は使いません）。実音高・弦・フレットは変えません。他のソフトでの音部記号・表示オクターブは未検証です。</p>}
+    <p role="status">描画: {rendered ? "完了" : "待機"} / 再生準備: {ready ? "完了" : "待機"} / 状態: {state}{pending ? "（操作反映中）" : ""}</p>
+    <p>{inspection}</p>
+    {spacing === "time" ? <p>時間比例の通常譜刻: 元の譜刻エンジン・音楽記号を使い、小節ごとに画面幅と音符の必要幅から横の縮尺を決め、発音位置と赤線を合わせます。同じ小節内では等速で進みます。1小節ごとに改行します。音高・開始終了秒は保持し、量子化しません。元MusicXMLの音価記号を保持するため、未量子化の端数秒を記号だけで厳密に読める譜面ではありません。TABの括弧数字はタイ継続です。</p> : <p>赤線は再生時刻から音符・休符の間を進みます。通常譜刻の横間隔は時間に比例しないため、一定テンポでも画面上の速度は変わります。段替わりでは次段の左へ移ります。</p>}
+    {bassTab && <p>五線譜＋TAB: 保存済み開放弦（低→高）{bassTab.tuning.map(pitchName).join(" / ")}、{bassTab.maxFret}フレット。高音側の弦を優先する簡易運指です。音高・原時刻を維持し、運指最適化やリズム補正は行いません。</p>}
+    <div className="midi-trial-controls">
+    <label>譜面の大きさ <select value={scale} onChange={event => setScale(event.target.value)}><option value="0.8">小さめ 80%</option><option value="1">標準 100%</option><option value="1.2">大きめ 120%</option></select></label>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <button disabled={!ready} onClick={() => {
+        const api = apiRef.current;
+        if (failed.current || !api?.isReadyForPlayback) return;
+        transportRef.current?.request("play");
+      }}>再生</button>
+      <button disabled={!ready} onClick={() => transportRef.current?.request("pause")}>一時停止</button>
+      <button disabled={!ready} onClick={() => transportRef.current?.request("stop")}>停止</button>
+    </div>
+    <label>再生位置（秒） <input type="range" min={0} max={duration || 0} step={0.01} value={Math.min(position, duration)} disabled={!ready || !duration} onChange={event => transportRef.current?.request("seek", Number(event.target.value)*1000)} /></label>
+    <p>{position.toFixed(2)} / {duration.toFixed(2)} 秒</p>
+    </div>
+    {error && <p role="alert">描画・再生エラー: {error}</p>}
+    {tabIssue && <p role="note">TAB表示の確認: {tabIssue}</p>}
+    {cursorError && <p role="alert">カーソル: {cursorError}</p>}
+    {overflow && <p role="note">音符が密な小節は読みやすい幅を保っています。譜面内を横にスクロールするか、譜面の大きさを調整してください。</p>}
+    <div className="midi-trial-score-frame" ref={frame} tabIndex={0} role="region" aria-label="譜面・横スクロール可能">
+      <div className="midi-trial-score" ref={container} style={{ minHeight: 180 }} />
+      <div ref={cursor} hidden className="midi-trial-time-cursor" data-testid="score-time-cursor" aria-hidden="true" />
+    </div>
+  </section>;
+}

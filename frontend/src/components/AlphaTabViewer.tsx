@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 
 // AlphaTab types are exported from the package; the import is lazy-used.
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { AlphaTabApi, type PlayerStateChangedEventArgs } from "@coderline/alphatab";
+import { AlphaTabApi, type synth } from "@coderline/alphatab";
 
+import "./MidiTrialViewer.css";
+import { installReadableEngravingLayout } from "../utils/readableEngraving";
 import { ALPHATAB_RESOURCES } from "../config";
 import type { FretboardNote } from "./Fretboard";
 
@@ -24,29 +26,31 @@ function AlphaTabViewer({
 }: AlphaTabViewerProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<AlphaTabApi | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingNotesRef = useRef<FretboardNote[] | null>(null);
+  const callbacks = useRef({ onActiveNotesChange, onPlayerStateChange });
+  callbacks.current = { onActiveNotesChange, onPlayerStateChange };
   const [status, setStatus] = useState<"idle" | "ready" | "error">("idle");
+  const [overflow, setOverflow] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const destroyApi = (): void => {
-    if (rafRef.current) {
+    if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    pendingNotesRef.current = null;
     apiRef.current?.destroy();
     apiRef.current = null;
   };
 
-  const mapState = (args: PlayerStateChangedEventArgs): PlayerState => {
-    // AlphaTab's PlayerState enum: 0=Stopped, 1=Playing, 2=Paused
-    const raw = (args.state as number | string) ?? 0;
-    if (raw === 1 || raw === "Playing") return "playing";
-    if (raw === 2 || raw === "Paused") return "paused";
-    return "stopped";
+  const mapState = (args: synth.PlayerStateChangedEventArgs): PlayerState => {
+    return args.state === 1 ? "playing" : args.stopped ? "stopped" : "paused";
   };
 
   useEffect(() => {
+    let alive = true;
     if (!scoreUrl || !containerRef.current) {
       setStatus("idle");
       setError(undefined);
@@ -55,13 +59,25 @@ function AlphaTabViewer({
     }
 
     destroyApi();
+    setOverflow(false);
+    const updateOverflow = (): void => {
+      const frame = frameRef.current;
+      if (alive && frame) setOverflow(frame.scrollWidth > frame.clientWidth + 1);
+    };
+    const scoreObserver = new MutationObserver(updateOverflow);
+    scoreObserver.observe(containerRef.current, { childList: true, subtree: true });
 
+    const fail = (cause: unknown): void => {
+      if (!alive) return;
+      alive = false;
+      callbacks.current.onPlayerStateChange?.("stopped");
+      destroyApi();
+      setStatus("error");
+      setError(String(cause));
+    };
     try {
       const api = new AlphaTabApi(containerRef.current, {
-        file: scoreUrl,
-        resources: {
-          url: ALPHATAB_RESOURCES,
-        },
+        core: { scriptFile: `${ALPHATAB_RESOURCES}alphaTab.min.js`, fontDirectory: `${ALPHATAB_RESOURCES}font/`, useWorkers: false },
         player: {
           enablePlayer: true,
           enableCursor: true,
@@ -71,15 +87,25 @@ function AlphaTabViewer({
       });
 
       apiRef.current = api;
-      setStatus("ready");
+      setStatus("idle");
       setError(undefined);
 
+      api.playerReady.on(() => { if (alive) setStatus("ready"); });
+      api.error.on(fail);
+      api.renderFinished.on(updateOverflow);
+      api.scoreLoaded.on(() => {
+        if (!alive) return;
+        try { installReadableEngravingLayout(api); }
+        catch (cause) { fail(cause); }
+      });
       api.playerStateChanged.on((args) => {
+        if (!alive) return;
         const normalized = mapState(args);
-        onPlayerStateChange?.(normalized);
+        callbacks.current.onPlayerStateChange?.(normalized);
       });
 
       api.activeBeatsChanged.on((args) => {
+        if (!alive) return;
         const beats = args?.activeBeats ?? [];
         const notes: FretboardNote[] = [];
         beats.forEach((beat: { notes: Array<{ string: number; fret: number }> }) => {
@@ -92,14 +118,17 @@ function AlphaTabViewer({
         pendingNotesRef.current = notes;
         if (rafRef.current === null) {
           rafRef.current = requestAnimationFrame(() => {
-            if (pendingNotesRef.current) {
-              onActiveNotesChange?.(pendingNotesRef.current);
+            if (alive && pendingNotesRef.current) {
+              callbacks.current.onActiveNotesChange?.(pendingNotesRef.current);
             }
             rafRef.current = null;
           });
         }
       });
+      if (!api.load(scoreUrl)) throw new Error("Score loading could not start");
     } catch (err) {
+      alive = false;
+      destroyApi();
       setStatus("error");
       setError(err instanceof Error ? err.message : "AlphaTab initialization failed");
       // AlphaTab may not initialize in non-browser contexts; log for debugging.
@@ -108,6 +137,8 @@ function AlphaTabViewer({
     }
 
     return () => {
+      alive = false;
+      scoreObserver.disconnect();
       destroyApi();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,8 +155,8 @@ function AlphaTabViewer({
   };
 
   return (
-    <div style={{ display: "grid", gap: "0.75rem" }}>
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+    <div className="score-viewer" style={{ display: "grid", gap: "0.75rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" onClick={handlePlay} disabled={status !== "ready"}>
           ▶ Play
         </button>
@@ -137,6 +168,8 @@ function AlphaTabViewer({
         </button>
         <span style={{ color: "#4b5563" }}>State: {status}</span>
       </div>
+      {overflow && <p>音符が密な小節は読みやすい幅を保っています。譜面内を横にスクロールしてください。</p>}
+      <div ref={frameRef} className="legacy-score-frame" role="region" aria-label="譜面・横スクロール可能" tabIndex={0}>
       <div
         ref={containerRef}
         style={{
@@ -145,10 +178,11 @@ function AlphaTabViewer({
           minHeight: "200px",
           borderRadius: "8px",
           background: "#f9fafb",
-          overflow: "hidden",
+          minWidth: 0,
         }}
       >
         AlphaTab player will render here.
+      </div>
       </div>
       {error && <p style={{ color: "#dc2626" }}>AlphaTab error: {error}</p>}
     </div>
