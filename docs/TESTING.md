@@ -1,5 +1,24 @@
 # テスト計画
 
+この文書の試験件数・成功記録は、各節とリンク先の報告が対象とする当時のツリー・環境だけに適用します。
+今回の main 統合ツリーの試験結果を示すものではありません。統合後は該当する手順で再検証してください。
+
+Retained-output review checks (CPU only): run
+`pytest tests/unit/test_model_output_reviews.py tests/unit/test_transcriptions_api.py tests/unit/test_muscriptor_worker.py tests/unit/test_muscriptor_trials_api.py`.
+Synthetic tests check every raw MIDI on/off pair including zero-duration pairs,
+immutable legacy jobs, worker asset verification and receipt hashes, explicit
+preview policy, same-ID recovery without conversion, modified-source refusal,
+and cross-job UUID isolation. They do not establish acoustic/model accuracy.
+The review-preview endpoint must never call a model worker or GPU stage.
+
+Run all `npm test -- --run`, `npx tsc --noEmit`, and the frontend build after UI
+changes. `OutputReview` checks explicit selection and same-ID GET recovery;
+`Transcribe` checks saved-job links issue no POST. Geometry tests check that a
+missing cursor path cannot interpolate across an affected engraved bar, while
+time-proportional layout stays strict. TAB tests check range failure happens
+before score mutation, preserving staff and playback. Verify real rendering and
+playback separately in a browser; mocks alone do not prove SDK geometry or sound.
+
 ## 現在の検証範囲
 
 - BackendはAPI/workerのモック中心と、440Hz合成音に対するBasic Pitchスモークを実装済み。
@@ -405,3 +424,378 @@ make test-frontend
 ```
 
 Optional CPU-only, already-PR8 frozen C JSON comparison: [guide](FROZEN_C_COMPARISON.md); run `cd backend && uv run --no-sync pytest -q tests/unit/test_evaluation_frozen_c.py` and all evaluation unit modules.
+
+## GP5 container regression
+
+Run from `backend` with the existing environment:
+
+```bash
+python -B -m pytest tests/unit/test_tab.py -q -p no:cacheprovider
+```
+
+These tests synthesize temporary MIDI, invoke the GP5 converter, and parse the
+result with PyGuitarPro. They verify mapped pitch/order preservation, unchanged
+input MIDI hashes, one intended track/header, mapping boundaries, and rest-only
+containers. MusicXML writing is stubbed to isolate this GP5 regression.
+
+The fix only removes blank default Song/Track containers that previously caused
+the writer to omit the populated measure. It retains the existing tuning
+`[40,45,50,55]`, fret range `0..24`, playback program/velocity, and sequential
+quarter-note durations. It does not preserve performed rhythm, add bars or
+voices, correct bass tuning, change MusicXML, or establish transcription quality.
+Empty/single-onset tempo-estimation fallback behavior is also outside this fix;
+the empty-container test supplies a tempo explicitly.
+
+## Opt-in saved-MIDI bass output tests
+
+See [SAVED_MIDI_BASS_TRIAL.md](evaluation/SAVED_MIDI_BASS_TRIAL.md) for the
+explicit CLI, restrictions and complete relevant test command. Use only
+synthetic fixtures; retain original MIDI and unknown reference accuracy.
+
+## Opt-in saved-MIDI Web tests
+
+See [SAVED_MIDI_WEB_TRIAL.md](evaluation/SAVED_MIDI_WEB_TRIAL.md) for API bounds,
+artifact distinctions and the actual-browser gate. Add `tests/unit/test_midi_trials_api.py`
+to the saved-MIDI backend suite. Run `npm test -- --run` after frontend changes,
+then `npm run build` and `node node_modules/typescript/bin/tsc --noEmit`.
+Mocked player callbacks do not substitute for visible SVG/transport checks.
+Preserve separate evidence for input selection, note pitch/count, cursor/time,
+pause/stop/seek, blocked range and re-input cleanup; never infer musical accuracy
+from successful rendering. Private MIDI is not a committed test fixture.
+
+The saved-result route `/midi-trial/saved/<trial UUID>` must issue only a GET,
+validate the UUID and returned summary identity, reject malformed/error replies,
+and abort stale reads on navigation/unmount. Test the default import flow too.
+For cursor visibility, inspect the real browser: the saved-MIDI viewer alone
+supplies a red beat cursor and translucent blue bar highlight. Confirm position
+changes during playback and seek, and reset on stop; mocked DOM tests cannot
+establish visual visibility. Keep the user's original tab and file selection.
+
+## Opt-in local MuScriptor route checks
+
+Decoder regressions cover backward absolute shifts, nonpositive note lengths,
+raw artifact retention after failure, and direct worker-file execution from a
+different directory. The strict policy rejects malformed output without
+clamping timestamps, dropping notes, or retrying the model. Successful output
+keeps the original notes and literal MIDI serialization.
+
+Run `pytest tests/unit/test_muscriptor_trials_api.py tests/unit/test_muscriptor_worker.py tests/unit/test_muscriptor_decoder.py`
+with the existing backend environment, plus the saved-MIDI/API and evaluation unit
+modules when changing shared conversion. Fixtures are generated synthetic data; heavy
+backends are mocked and tests require no downloaded models or private audio.
+Run `npm test` and `npm run build` after frontend changes. The existing TypeScript
+baseline errors must be reported separately from new errors.
+
+The route's functional real-clip check is documented in
+[MUSCRIPTOR_OPT_IN_TRIAL.md](evaluation/MUSCRIPTOR_OPT_IN_TRIAL.md). It must retain
+raw output, verify MIDI/XML event correspondence within their rounding bounds,
+check terminal failure/no-fallback/reentry, and distinguish backend integration from
+manual file-input testing. Never invent precision/recall/F1 for unverified RWC labels.
+
+## Optional constrained fingering and explicit rhythm
+
+See [BASS_NOTATION_TRIAL.md](evaluation/BASS_NOTATION_TRIAL.md). Run these new modules
+with the existing backend environment, then the existing evaluation, bass-output,
+MIDI/API and worker regression suites:
+
+```bash
+python -m pytest tests/unit/test_bass_fingering.py tests/unit/test_explicit_rhythm.py tests/unit/test_evaluation_bass_notation_trial.py -q
+```
+
+The 60 new tests cover string occupancy during original note intervals, open strings,
+bass4/bass5/custom tuning, range rejection without transposition, position/hand-span
+constraints, search caps, no partial GP5, explicit clock validation, short-note
+collapse, onset merging, overlap changes, rests, repeated pitches, bar-crossing ties,
+and exact MusicXML readback through an independent music21 parser. Original MIDI
+bytes and storage-clock MusicXML must remain preserved. The complete relevant suite
+passed 237 tests on NAJA at that implementation stage (one existing FastAPI
+`on_event` deprecation warning). This historical count does not validate later integrations.
+
+For a visual check, use a synthetic score with an explicit clock and the installed
+AlphaTab assets through the permitted browser tool. A rendered glyph or successful
+transport is not an auditory or transcription-quality verdict. Keep independent
+test/audit evidence separate from live browser file-selection coverage. No frontend
+application source changed in that stage; its recorded frontend result was 42 tests
+and a successful build, with 11 TypeScript errors. Later typecheck results belong
+to their separate [dated integration report](evaluation/CLOUD_INTEGRATION.md);
+none of these historical results validates the current integration tree.
+## Local listening and notation regression
+
+Raw clock guards also run `test_evaluation_midi_clock.py`: conductor/nonconductor
+tempo and meter changes, rejection before normalization/output, unchanged source
+bytes, duplicate clock declarations and legacy saved-source revalidation. API
+regressions require the specific `unsupported_midi_clock` refusal.
+
+Run `pytest tests/unit/test_evaluation_*.py` plus the existing bass/output/API
+regressions after these changes. New focused modules are
+`test_notation_trials_api.py` and `test_rhythmic_gp5.py`. They cover idempotency,
+unchanged source bytes, explicit deltas, unsupported clock fallback,4/5/6strings,
+short notes, rests, repeated attacks, staggered chords and barline ties.
+Frontend: `npm test -- --run`, `npm run build`, and `npx tsc --noEmit`.
+No lint script is currently configured. Existing typecheck failures are reported
+separately, never treated as successful type validation.
+
+Browser checks must include rapid source selection, loop/end boundaries,
+pause/stop/replay, invalid intervals, interrupted-result recovery, original versus
+derived labels, logical pitch/count, cursor and playback time. Synthetic explicit
+clock examples do not establish real-song tempo or transcription accuracy.
+See [local trial contract](evaluation/LOCAL_LISTENING_NOTATION_UI.md).
+
+The [original-time cursor/TAB regression](evaluation/score-cursor-tab.md) adds
+`frontend/src/test/scoreGeometry.test.ts` with real alphaTab parsing/rendering of
+synthetic XML. Browser playback must cover late second-bar rests, barline ties,
+the next system, seek/pause/stop/replay, and repeated TAB toggles. A constant
+tempo does not imply constant pixel velocity on non-proportional printed spacing.
+
+Notation-clock rebarring regression: `test_evaluation_notation_clock.py` reads
+synthetic XML back with exact rational arithmetic, covering ties, rests, bar
+boundaries, polyphony, repeated/one-tick notes, and original full-bar tail duration.
+API tests check repeated GETs leave all saved files unchanged, reject changed or
+incompatible sources, and never invoke models. `MidiTrial`/`MidiTrialViewer`
+tests distinguish the candidate from quantization and ignore stale player events.
+The real-song audit is local only, never a test fixture or accuracy reference.
+See [notation-clock contract](evaluation/notation-clock.md).
+
+Time-proportional view: `frontend/src/test/timeScore.test.tsx` uses synthetic
+MusicXML and the real alphaTab loader/player generator. It checks equal-time
+cursor distances, exact attack alignment, ties across rows, rests, short repeated
+notes, 4/5/6 strings and unchanged playback events. Meter changes, repeats and
+unverified ties must fail explicitly. Viewer tests cover disposal/stale callbacks
+when switching spacing. Browser checks measure DOM glyph/cursor coordinates,
+fixed-tempo beat intervals, row/bar crossings and seek/pause/stop/display changes.
+`spacing=time` explicitly selects this display; normal engraving remains default.
+
+The current time view reuses alphaTab 1.7.1 engraving instead of custom SVG glyphs.
+`libraryTimeLayout.test.ts` checks playback-time column placement, unchanged
+glyph/model data, unsupported layouts and measured note/TAB alignment guards.
+The former `timeNotation` code/tests remain historical, unused by the viewer.
+`playbackTransport.test.ts` injects delayed pause/stop/play/seek notifications,
+the SDK's automatic beat-start rewind, buffered samples, rapid newer intents,
+missing acknowledgements, natural completion and disposed players. Browser
+checks must compare the original engraving, every barline and bass clef, and
+measure pause stability, seek/replay/stop and equal-time cursor distances. A
+successful raw-time display is not a verified musical quantization or tempo.
+
+## 通常導線と型チェックの追加回帰
+
+[クラウド統合検証](evaluation/CLOUD_INTEGRATION.md) に、通常ジョブの生成MIDI→原時刻版→
+任意補正の検証範囲と手順を記載しています。frontendでは `npm test -- --run`、
+`node node_modules/typescript/bin/tsc --noEmit`、`npm run build` を実行します。
+backendの `test_workflow_integration.py` は推論を模擬し、保存MIDIとGP5出力は実際の処理で確認します。
+通信待機の中断はサーバー処理の取消ではなく、保存IDで確認することをテストします。
+
+## Optional listening amplitude decay
+
+For separate note-offset and crop-prefix candidate evaluation, see
+[the prospective correction audit](evaluation/CORRECTION_AUDIT.md).
+`test_evaluation_correction_audit.py` covers frozen targets/settings/hashes, reused
+recording exclusion, recording-level aggregation, boundary continuations, silent
+references, invalid/failed/unscored outputs and F1 gains hiding offset regressions.
+It uses synthetic JSON only and never executes a correction or inference model.
+The integration scope, JSON response/cancellation tests, and separate initial-carry
+experiment commands are documented in [LOCAL_REVIEW_VALIDATION.md](LOCAL_REVIEW_VALIDATION.md).
+
+`test_evaluation_listening_packet.py` checks unchanged stored legacy WAV/source
+bytes and exact legacy synthesis samples across new packets. New FLOAT WAVs can
+have different PEAK creation timestamps, so their hashes need not match each other.
+It also checks per-note decay with unchanged nonzero sample boundaries, 1ms short
+notes, overlaps, repeated attacks, trailing silence and strict optional-track
+API metadata/hash validation. Run all `test_evaluation_*.py` modules after edits
+to this evaluation helper, or the full backend suite below.
+
+`ListeningTrial.test.tsx` validates old/new packet schemas and stale input loads.
+`cloudSegmentRace.test.ts` covers delayed decay/legacy switches, stale end events,
+pause/stop/seek/configure/dispose during resume, exact interval end and replay.
+The real HTTP browser check must select both variants, pause/seek/resume, switch
+rapidly, reach the interval end, and load an old three-track packet. Synthetic
+amplitude measurements and browser playback are separate from human listening.
+
+```bash
+cd backend
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests cloud_tests -q -p no:cacheprovider
+cd ../frontend
+npm test -- --run
+node node_modules/typescript/bin/tsc --noEmit
+npm run build
+```
+
+## MuScriptor-first product workflow
+
+Run all backend tests with the existing Python 3.11 environment (`python -m pytest
+ tests -q`), then `npm test -- --run`, `npx tsc --noEmit` and `npm run build` in
+`frontend`. New tests are `test_transcriptions_api.py`, the long-stream tests in
+`test_muscriptor_worker.py`, and `Transcribe.test.tsx`.
+
+The API checks synthesize 12-second WAVs and MIDI sustains over 5s/10s boundaries,
+including a same-pitch retrigger. They exercise the real source selection, strict
+MIDI import and notation output with **mocked** heavy stages. Adapter tests keep
+one complete event stream and check original onset/offset/pitch and progress;
+they do not establish that the real model generated those events. A separate
+supervisor test launches and cancels a real idle Python child, verifying exit and
+slot reuse without CUDA. Tests cover same-byte idempotency, changed-byte conflict,
+invalid intervals, sample alignment, stale events, API empty/HTML/truncated errors,
+reload recovery, cancellation, interruption, raw artifact retention and validated
+checkpoint reuse. Single-process API execution is the supported local configuration.
+
+The UI keeps an unknown POST result locked to the same request ID until checked;
+4xx refusal unlocks the form. API/proxy failure is checked before JSON parsing;
+the Web proxy returns structured JSON 503 when the API is down. Never infer that
+an unknown request did not start. `scripts/run_local.py` refuses occupied ports,
+requires an existing build, and always stops only its own children on exit.
+
+For browser checks use only loopback HTTP and fresh synthetic files. Do not load
+or republish previously denied file reports. Verify upload, duplicate click, reload,
+progress, cancellation acknowledgement vs terminal stop, retry, API stop/restart,
+TAB/player/export and preservation of the original/failed raw attempt. Record
+inference as mocked, never as real-model success. A separate deployed-model trial
+on approved local assets is still required to establish long-song VRAM, performance,
+valid stream rate and real boundary missing/extra/timing accuracy. Independent GT
+is unavailable; all 17 existing IDMT recordings have already been used.
+
+With Playwright and system Chromium already installed, reproduce the product
+browser test from the root with `python scripts/check_workflow_http.py
+--backend-python backend/.venv/bin/python --result-dir /tmp/stem2tab-workflow-new`.
+Use a new result directory. It starts ports 4320/8320, marks screenshots and JSON
+as synthetic/mocked, stops and restores the actual API, and stops both owned
+servers in `finally`. It does not activate a mock mode in the shipped application.
+
+Review regressions also cover a fast competing same-ID request (identical and
+conflicting bytes), changed saved input/downloads, corrupt checkpoints, inherited
+execution-lock survival after API interruption, and raw MIDI downloads after
+notation rejection. Real idle process trees include a helper ignoring SIGTERM;
+cancel and launcher cleanup kill only owned groups while an unrelated process
+stays alive. CLI tests launch the actual worker argument parser for both stages
+and both 10s/600s bounds; model work alone is replaced by a completion fixture.
+Cancellation writes a supervisor record even on an exceptional exit.
+
+For the final short model chunk, onset must precede actual audio end; offset may
+reach only `ceil(audio_seconds * 100) / 100` (the pinned model's 100Hz clock),
+allowing its representation's last partial frame. Longer padded events fail
+before MIDI export with raw notes and `audio-window.json` retained. This guard
+does not change note data and may reject previously accepted padded output;
+real-model acceptance rate remains unmeasured. No acoustic accuracy is inferred.
+
+
+## Local M4A and Ogg/Opus decoding
+
+Run python -B -m pytest tests/unit/test_local_audio_input.py tests/unit/test_transcriptions_api.py -q from backend using the existing environment. Tests encode synthetic AAC/ALAC/Opus with installed ffmpeg and exercise the real decoder and pre-separation API persistence. They never fetch media or load a neural model. Codec tests skip explicitly if ffmpeg/ffprobe are absent; missing-tool and boundary tests still run. See evaluation/LOCAL_AUDIO_INPUTS.md for limits.
+
+`workflowHttp.test.ts` checks public 422 details and form-field errors without
+echoing validation input/context, including missing or malformed error bodies.
+`Transcribe.test.tsx` checks explicit retry after rejection, retained file selection
+and prior-result restoration. The codec API tests reject an invalid form, accept
+the corrected request with the same ID, replay it once without another launch,
+and reject conflicting bounds without modifying any saved file. Run the full
+frontend test suite after editing the shared HTTP reader.
+
+Decoder regression checks also distinguish probe and decode failures, retain
+bounded local diagnostics, redact local paths/URLs in service logs, and prevent
+raw command errors from entering HTTP responses. A nonzero exit does not establish
+that an input is damaged or protected.
+
+Empty-input regressions cover every accepted extension in the UI and API.
+They assert that zero-byte input does not create a pending ID, make a POST,
+check model runtimes, spawn a decoder or create a job. Selecting a nonempty
+replacement remains possible. Valid synthetic codec tests must continue to pass.
+
+Failed transcription status responses explain retained decoder timing diagnostics
+without rewriting status, notes or tokens. A zero-duration failure stays failed;
+no automatic exclusion, extension or retry is performed. Unreadable auxiliary
+diagnostics must not hide the original terminal failure.
+
+## System fixes with synthetic input
+
+Issues #16 through #19 have separate implementation and review records. The
+musical-clock checks compare exact XML note seconds, bar origins and tail rests;
+the MIDI rejection checks exercise producer ordering and durable same-ID receipts.
+Run the full backend unit suite, including every `test_evaluation_*.py` module:
+
+```sh
+cd backend
+PYTHONPATH=$PWD uv run --no-sync python -B -m pytest tests/unit -q -p no:cacheprovider
+```
+
+When reusing an editable environment from another checkout, set
+`UV_PROJECT_ENVIRONMENT` to that environment and keep this checkout on
+`PYTHONPATH`. Use `python -m pytest` so the selected source is imported.
+
+The frontend's real alphaTab checks cover viewport layout, note/cursor geometry,
+playback events, pickups and the exact-preview refusal boundary. Run the full
+frontend tests, build and TypeScript check before browser verification.
+`scripts/check_workflow_http.py` exercises the real loopback Web/API flow with
+mocked inference. `scripts/check_product_ui.mjs` covers accessible controls and
+workflow recovery with intercepted synthetic API responses.
+`frontend/scripts/check-responsive-score.py --base-url <preview origin>` checks
+the real built renderer and playback with synthetic score responses. Use the
+existing Playwright and Chromium installations; no package installation or model
+download is part of these checks. Vite's development-mode SDK worker URL is not
+the supported playback proof path; use `npm run build` followed by preview.
+
+### Show the branch locally without real recordings
+
+Use an isolated checkout and fresh output/data directories. From the repository
+root, with existing backend/frontend dependencies:
+
+```sh
+backend/.venv/bin/python scripts/create_system_preview.py --output-dir /tmp/stem2tab-ui-fixtures-new
+cd frontend
+npm run build
+cd ..
+python scripts/run_local.py --python backend/.venv/bin/python --api-port 8429 --web-port 4299 --data /tmp/stem2tab-ui-data-new
+```
+
+Open `http://127.0.0.1:4299/midi-trial`. Import either generated MIDI as a local
+MIDI with a 4-string bass profile. The pulse fixture uses a 60 BPM storage clock;
+its documented musical-clock example is 120 BPM, 4/4, origin 0.5 seconds.
+The dense fixture checks score scrolling and size controls. The generator refuses
+an existing output directory. The launcher refuses occupied ports and stops only
+its owned processes on exit. Use Ctrl-C to stop this pair; keep existing servers,
+recordings and result directories untouched.
+
+No configured transcription model is required for this saved-MIDI review. An
+unconfigured model remains an explicit unavailable state on the audio page.
+Synthetic browser checks establish system behavior, not real-song BPM accuracy,
+note accuracy, listening acceptance or human approval of the design.
+
+## Audio BPM suggestions
+
+The [audio estimator](evaluation/AUDIO_TEMPO.md) has a separate source-identity
+and uncertainty contract from the exact musical-clock exporter. Its repository
+tests synthesize audio and exercise real upload and stored-source API paths,
+including complete normal jobs and explicitly created review candidates.
+No model or real recording is required. Run all evaluation and API unit tests
+with the full backend unit command above. Reproduce the in-memory synthetic
+signal checks from `backend/` with:
+
+```sh
+PYTHONPATH=$PWD uv run --no-sync python -B -m src.evaluation.audio_tempo_synthetic --output benchmark_results/audio-tempo-synthetic.json
+```
+
+The generated report separates primary, octave-family and complete-candidate
+coverage from refusals. It does not establish real-song accuracy. Independent
+review additionally uses a frozen thirty-case suite; a known syncopated case
+still misses the intended musical beat, so the UI must retain manual input and
+state that candidate families are not exhaustive.
+
+For local visual review of the new controls, create a fresh paired synthetic
+WAV/MIDI directory from the repository root:
+
+```sh
+backend/.venv/bin/python scripts/create_tempo_preview.py --output-dir /tmp/stem2tab-tempo-fixtures-new
+```
+
+Build and run the existing loopback launcher with a fresh data directory and
+unused ports. Import `synthetic-bpm-120.mid` as local MIDI with a 4-string bass,
+then explicitly select `synthetic-bpm-120.wav` in the audio BPM panel. The server
+labels standalone audio/MIDI correspondence unverified even for this known
+generated pair. Its 24-second pulse is 120 BPM with onset origin 0.25 seconds.
+Selecting a BPM fills only BPM/evidence, with an explicit replacement choice for
+existing manual values. Enter 4/4 and origin 0.25 yourself if creating the exact
+clock example. No estimation action may create that derivative or move playback.
+
+Use the [UI proof recipe](TEMPO_UI_REVIEW.md) for controlled failures, delayed
+responses, malformed reports, source changes, no-evidence and unstable results.
+The real API/browser review also checks verified saved audio, changed receipts,
+original file hashes, existing score ticks and paused player position. Hashes,
+results and screenshots stay in fresh ignored or temporary directories; never
+add real recordings or model assets to the tests or repository.

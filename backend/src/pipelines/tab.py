@@ -108,11 +108,10 @@ def _write_gp5_score(notes: list[_ScoreNote], output_path: Path, bpm: float, str
         if _pick_string_and_fret(n.pitch, strings) is None:
             raise ValueError(f"Pitch {n.pitch} is outside the {strings}-string 24-fret range")
         previous_end = n.end
-    song = models.Song(tempo=round(bpm), tempoName="Bass")
-    song.measureHeaders.clear()
-    song.tracks.clear()
-    track = models.Track(song, name="Bass", channel=models.MidiChannel(instrument=33))
-    track.measures.clear()
+    # PyGuitarPro creates a default track and measure unless we own these
+    # containers explicitly; a leading blank track can truncate saved notes.
+    song = models.Song(tempo=round(bpm), tempoName="Bass", tracks=[], measureHeaders=[])
+    track = models.Track(song, name="Bass", channel=models.MidiChannel(instrument=33), measures=[])
     track.strings = [models.GuitarString(number=i, value=p) for i, p in enumerate(
         reversed(STANDARD_TUNINGS[strings]), start=1)]
     song.tracks.append(track)

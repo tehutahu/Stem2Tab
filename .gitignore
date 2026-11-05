@@ -45,6 +45,7 @@ temp/
 
 # Frontend (React + Vite)
 frontend/node_modules/
+frontend/node_modules
 frontend/.pnpm-store/
 frontend/.eslintcache
 frontend/.parcel-cache/
@@ -67,3 +68,4 @@ benchmark_results/
 *.pth
 *.pt
 *.ckpt
+.local-data/

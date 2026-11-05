@@ -60,6 +60,22 @@ class BenchmarkMetrics(BaseModel):
     runtime_seconds: float = Field(ge=0.0)
 
 
+def match_onsets(
+    reference: NoteEventSet, estimated: NoteEventSet, *, config: MetricConfig,
+) -> list[tuple[int, int]]:
+    """Return the existing one-to-one pitch/onset matches without an offset test."""
+    if not reference.notes or not estimated.notes:
+        return []
+    ref_intervals, ref_pitches = _as_mir_eval_arrays(reference)
+    est_intervals, est_pitches = _as_mir_eval_arrays(estimated)
+    return mir_eval.transcription.match_notes(
+        ref_intervals, ref_pitches, est_intervals, est_pitches,
+        onset_tolerance=config.onset_tolerance_seconds,
+        pitch_tolerance=config.pitch_tolerance_cents,
+        offset_ratio=None,
+    )
+
+
 def evaluate_note_events(
     reference: NoteEventSet,
     estimated: NoteEventSet,
@@ -100,14 +116,7 @@ def evaluate_note_events(
                 **common_kwargs,
             )
         )
-        onset_matches = mir_eval.transcription.match_notes(
-            ref_intervals,
-            ref_pitches,
-            est_intervals,
-            est_pitches,
-            offset_ratio=None,
-            **common_kwargs,
-        )
+        onset_matches = match_onsets(reference, estimated, config=config)
         overlap = _average_overlap_ratio(ref_intervals, est_intervals, onset_matches)
     else:
         onset_precision = onset_recall = onset_f1 = overlap = 0.0
